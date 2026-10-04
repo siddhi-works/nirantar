@@ -1,0 +1,478 @@
+{
+ "source": "ABHA_Two_Patient_HIS.xlsx",
+ "patients": [
+  {
+   "patient_id": "P1",
+   "name": "Mr. Dummy 1",
+   "age": 50,
+   "sex": "M",
+   "weight_kg": 70,
+   "address": "Patna, Bihar",
+   "abha_id": "91-2612-3348-1056",
+   "abha_note": "Dummy ID written for this sheet. Source slip was blank.",
+   "doctor": "Dr. XYZ",
+   "reg_no": "12345",
+   "visits": 5,
+   "row": 2
+  },
+  {
+   "patient_id": "P2",
+   "name": "Mrs. Dummy 2",
+   "age": 70,
+   "sex": "F",
+   "weight_kg": 65,
+   "address": "Gorakhpur, U.P.",
+   "abha_id": "14-7004-8821-5590",
+   "abha_note": "Dummy ID written for this sheet. Source slip was blank.",
+   "doctor": "Dr. ABC",
+   "reg_no": "98761",
+   "visits": 5,
+   "row": 3
+  }
+ ],
+ "prescriptions": {
+  "P1": [
+   {
+    "row": 6,
+    "sheet": "P1_Prescription",
+    "visit": 1,
+    "date": "2026-12-03",
+    "co": "Follow-up after 2 months. Polyuria and thirst reduced. No hypoglycemic symptoms.",
+    "investigations": "FBS – 124 mg/dl; PPBS – 178 mg/dl; HbA1c – 6.5%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue Tab. Metformin 500 mg oral before meal, 1 × 3 tab.\n2) Low calorie diet.\n3) Brisk walking / regular physical activity.\n4) Avoid high sugar-content foods.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 7,
+    "sheet": "P1_Prescription",
+    "visit": 2,
+    "date": "2027-03-03",
+    "co": "Generally well. Occasional dietary indiscretion. No polyuria/polydipsia.",
+    "investigations": "FBS – 118 mg/dl; PPBS – 165 mg/dl; HbA1c – 6.3%; Renal function – within reference range.",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing metformin regimen.\n2) Continue low calorie diet and brisk walking.\n3) Monitor blood glucose periodically.\n4) Continue avoidance of high-sugar foods.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 8,
+    "sheet": "P1_Prescription",
+    "visit": 3,
+    "date": "2027-06-03",
+    "co": "No polyuria or polydipsia. No new complaints.",
+    "investigations": "FBS – 112 mg/dl; PPBS – 154 mg/dl; HbA1c – 6.1%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing metformin regimen.\n2) Continue dietary modification.\n3) Regular brisk walking / physical activity.\n4) Periodic HbA1c and renal profile.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 9,
+    "sheet": "P1_Prescription",
+    "visit": 4,
+    "date": "2027-09-03",
+    "co": "No new complaints. Clinically stable.",
+    "investigations": "FBS – 109 mg/dl; PPBS – 148 mg/dl; HbA1c – 6.0%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing treatment.\n2) Continue low calorie diet.\n3) Continue regular physical activity.\n4) Avoid high sugar-content foods.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 10,
+    "sheet": "P1_Prescription",
+    "visit": 5,
+    "date": "2027-12-03",
+    "co": "Asymptomatic. No polyuria or polydipsia.",
+    "investigations": "FBS – 106 mg/dl; PPBS – 142 mg/dl; HbA1c – 5.9%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing treatment.\n2) Continue dietary modification and physical activity.\n3) Periodic diabetes monitoring.\n4) Continue avoidance of high-sugar foods.\n5) Follow-up as advised."
+   }
+  ],
+  "P2": [
+   {
+    "row": 6,
+    "sheet": "P2_Prescription",
+    "visit": 1,
+    "date": "2000-08-04",
+    "co": "Follow-up after 15 days. Home glucose readings remain elevated. No symptomatic hypoglycemia.",
+    "investigations": "FBS – 158 mg/dl; PPBS – 205 mg/dl",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue Tab. Metformin 500 mg oral before meal, 1 × 3 tab.\n2) Continue Insulin glargine S.C. once daily at bedtime, 10 U/day as per source plan.\n3) Low calorie diet and brisk walking as tolerated.\n4) Monitor blood glucose and watch for hypoglycemia.\n5) Follow-up after 1 month."
+   },
+   {
+    "row": 7,
+    "sheet": "P2_Prescription",
+    "visit": 2,
+    "date": "2000-09-04",
+    "co": "Mild improvement in glucose readings. No documented hypoglycemia.",
+    "investigations": "FBS – 142 mg/dl; PPBS – 188 mg/dl",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing metformin regimen.\n2) Continue prescribed insulin glargine regimen.\n3) Continue low calorie diet and appropriate physical activity.\n4) Maintain home glucose record.\n5) Follow-up after 6 weeks."
+   },
+   {
+    "row": 8,
+    "sheet": "P2_Prescription",
+    "visit": 3,
+    "date": "2000-11-04",
+    "co": "No polyuria or polydipsia. Clinically stable.",
+    "investigations": "FBS – 128 mg/dl; PPBS – 176 mg/dl; HbA1c – 6.8%; Urine protein remains positive.",
+    "diagnosis": "Type 2 Diabetes with proteinuria",
+    "advice": "1) Continue existing diabetes treatment.\n2) Continue dietary modification and appropriate physical activity.\n3) Repeat renal assessment and urine albumin/protein quantification.\n4) Continue glucose monitoring.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 9,
+    "sheet": "P2_Prescription",
+    "visit": 4,
+    "date": "2001-02-04",
+    "co": "Stable. No reported hypoglycemic episodes.",
+    "investigations": "FBS – 120 mg/dl; PPBS – 164 mg/dl; HbA1c – 6.6%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing metformin and insulin regimen.\n2) Continue low calorie diet and appropriate physical activity.\n3) Monitor renal function and urinary protein.\n4) Maintain glucose monitoring record.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 10,
+    "sheet": "P2_Prescription",
+    "visit": 5,
+    "date": "2001-05-04",
+    "co": "Clinically stable. No new complaints.",
+    "investigations": "FBS – 116 mg/dl; PPBS – 158 mg/dl; HbA1c – 6.5%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing diabetes treatment.\n2) Continue dietary modification and appropriate physical activity.\n3) Periodic HbA1c and renal-function monitoring.\n4) Continue surveillance for diabetic complications.\n5) Follow-up as advised."
+   }
+  ]
+ },
+ "diagnostics": {
+  "P1": [
+   {
+    "row": 6,
+    "sheet": "P1_Diagnostic",
+    "visit": 1,
+    "date": "2026-12-03",
+    "co": "Follow-up after 2 months. Polyuria and thirst reduced. No hypoglycemic symptoms.",
+    "investigations": "FBS – 124 mg/dl; PPBS – 178 mg/dl; HbA1c – 6.5%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue Tab. Metformin 500 mg oral before meal, 1 × 3 tab.\n2) Low calorie diet.\n3) Brisk walking / regular physical activity.\n4) Avoid high sugar-content foods.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 7,
+    "sheet": "P1_Diagnostic",
+    "visit": 2,
+    "date": "2027-03-03",
+    "co": "Generally well. Occasional dietary indiscretion. No polyuria/polydipsia.",
+    "investigations": "FBS – 118 mg/dl; PPBS – 165 mg/dl; HbA1c – 6.3%; Renal function – within reference range.",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing metformin regimen.\n2) Continue low calorie diet and brisk walking.\n3) Monitor blood glucose periodically.\n4) Continue avoidance of high-sugar foods.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 8,
+    "sheet": "P1_Diagnostic",
+    "visit": 3,
+    "date": "2027-06-03",
+    "co": "No polyuria or polydipsia. No new complaints.",
+    "investigations": "FBS – 112 mg/dl; PPBS – 154 mg/dl; HbA1c – 6.1%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing metformin regimen.\n2) Continue dietary modification.\n3) Regular brisk walking / physical activity.\n4) Periodic HbA1c and renal profile.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 9,
+    "sheet": "P1_Diagnostic",
+    "visit": 4,
+    "date": "2027-09-03",
+    "co": "No new complaints. Clinically stable.",
+    "investigations": "FBS – 109 mg/dl; PPBS – 148 mg/dl; HbA1c – 6.0%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing treatment.\n2) Continue low calorie diet.\n3) Continue regular physical activity.\n4) Avoid high sugar-content foods.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 10,
+    "sheet": "P1_Diagnostic",
+    "visit": 5,
+    "date": "2027-12-03",
+    "co": "Asymptomatic. No polyuria or polydipsia.",
+    "investigations": "FBS – 106 mg/dl; PPBS – 142 mg/dl; HbA1c – 5.9%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing treatment.\n2) Continue dietary modification and physical activity.\n3) Periodic diabetes monitoring.\n4) Continue avoidance of high-sugar foods.\n5) Follow-up as advised."
+   }
+  ],
+  "P2": [
+   {
+    "row": 6,
+    "sheet": "P2_Diagnostic",
+    "visit": 1,
+    "date": "2000-08-04",
+    "co": "Follow-up after 15 days. Home glucose readings remain elevated. No symptomatic hypoglycemia.",
+    "investigations": "FBS – 158 mg/dl; PPBS – 205 mg/dl",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue Tab. Metformin 500 mg oral before meal, 1 × 3 tab.\n2) Continue Insulin glargine S.C. once daily at bedtime, 10 U/day as per source plan.\n3) Low calorie diet and brisk walking as tolerated.\n4) Monitor blood glucose and watch for hypoglycemia.\n5) Follow-up after 1 month."
+   },
+   {
+    "row": 7,
+    "sheet": "P2_Diagnostic",
+    "visit": 2,
+    "date": "2000-09-04",
+    "co": "Mild improvement in glucose readings. No documented hypoglycemia.",
+    "investigations": "FBS – 142 mg/dl; PPBS – 188 mg/dl",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing metformin regimen.\n2) Continue prescribed insulin glargine regimen.\n3) Continue low calorie diet and appropriate physical activity.\n4) Maintain home glucose record.\n5) Follow-up after 6 weeks."
+   },
+   {
+    "row": 8,
+    "sheet": "P2_Diagnostic",
+    "visit": 3,
+    "date": "2000-11-04",
+    "co": "No polyuria or polydipsia. Clinically stable.",
+    "investigations": "FBS – 128 mg/dl; PPBS – 176 mg/dl; HbA1c – 6.8%; Urine protein remains positive.",
+    "diagnosis": "Type 2 Diabetes with proteinuria",
+    "advice": "1) Continue existing diabetes treatment.\n2) Continue dietary modification and appropriate physical activity.\n3) Repeat renal assessment and urine albumin/protein quantification.\n4) Continue glucose monitoring.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 9,
+    "sheet": "P2_Diagnostic",
+    "visit": 4,
+    "date": "2001-02-04",
+    "co": "Stable. No reported hypoglycemic episodes.",
+    "investigations": "FBS – 120 mg/dl; PPBS – 164 mg/dl; HbA1c – 6.6%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing metformin and insulin regimen.\n2) Continue low calorie diet and appropriate physical activity.\n3) Monitor renal function and urinary protein.\n4) Maintain glucose monitoring record.\n5) Follow-up after 3 months."
+   },
+   {
+    "row": 10,
+    "sheet": "P2_Diagnostic",
+    "visit": 5,
+    "date": "2001-05-04",
+    "co": "Clinically stable. No new complaints.",
+    "investigations": "FBS – 116 mg/dl; PPBS – 158 mg/dl; HbA1c – 6.5%",
+    "diagnosis": "Type 2 Diabetes",
+    "advice": "1) Continue existing diabetes treatment.\n2) Continue dietary modification and appropriate physical activity.\n3) Periodic HbA1c and renal-function monitoring.\n4) Continue surveillance for diabetic complications.\n5) Follow-up as advised."
+   }
+  ]
+ },
+ "trends": {
+  "P1": [
+   {
+    "row": 6,
+    "sheet": "P1_Trends",
+    "visit": 1,
+    "date": "2026-12-03",
+    "fbs": 124,
+    "ppbs": 178,
+    "hba1c": 6.5
+   },
+   {
+    "row": 7,
+    "sheet": "P1_Trends",
+    "visit": 2,
+    "date": "2027-03-03",
+    "fbs": 118,
+    "ppbs": 165,
+    "hba1c": 6.3
+   },
+   {
+    "row": 8,
+    "sheet": "P1_Trends",
+    "visit": 3,
+    "date": "2027-06-03",
+    "fbs": 112,
+    "ppbs": 154,
+    "hba1c": 6.1
+   },
+   {
+    "row": 9,
+    "sheet": "P1_Trends",
+    "visit": 4,
+    "date": "2027-09-03",
+    "fbs": 109,
+    "ppbs": 148,
+    "hba1c": 6
+   },
+   {
+    "row": 10,
+    "sheet": "P1_Trends",
+    "visit": 5,
+    "date": "2027-12-03",
+    "fbs": 106,
+    "ppbs": 142,
+    "hba1c": 5.9
+   }
+  ],
+  "P2": [
+   {
+    "row": 6,
+    "sheet": "P2_Trends",
+    "visit": 1,
+    "date": "2000-08-04",
+    "fbs": 158,
+    "ppbs": 205,
+    "hba1c": null
+   },
+   {
+    "row": 7,
+    "sheet": "P2_Trends",
+    "visit": 2,
+    "date": "2000-09-04",
+    "fbs": 142,
+    "ppbs": 188,
+    "hba1c": null
+   },
+   {
+    "row": 8,
+    "sheet": "P2_Trends",
+    "visit": 3,
+    "date": "2000-11-04",
+    "fbs": 128,
+    "ppbs": 176,
+    "hba1c": 6.8
+   },
+   {
+    "row": 9,
+    "sheet": "P2_Trends",
+    "visit": 4,
+    "date": "2001-02-04",
+    "fbs": 120,
+    "ppbs": 164,
+    "hba1c": 6.6
+   },
+   {
+    "row": 10,
+    "sheet": "P2_Trends",
+    "visit": 5,
+    "date": "2001-05-04",
+    "fbs": 116,
+    "ppbs": 158,
+    "hba1c": 6.5
+   }
+  ]
+ },
+ "aiSummary": {
+  "P1": {
+   "sheet": "P1_AI_Summary",
+   "headline": "Steady fall on the same metformin. No drug was added.",
+   "body": "Mr. Dummy 1, 50, Patna. Dummy ABHA 91-2612-3348-1056. Five follow-ups from 03/12/2026 to 03/12/2027, all diagnosed Type 2 Diabetes. FBS 124 → 118 → 112 → 109 → 106. PPBS 178 → 165 → 154 → 148 → 142. HbA1c 6.5 → 6.3 → 6.1 → 6.0 → 5.9. Symptoms ease from reduced polyuria to asymptomatic. One dietary slip in March 2027 did not reverse the fall. Renal function is written as within range only on the second slip, with no number. The only medicine on every slip is metformin 500 mg, one tablet three times before meals. Diet and walking advice is repeated, not changed.",
+   "watch": "Nothing on these slips asks for a new drug. The next useful check the slips themselves name is a periodic HbA1c and a renal profile, which was not given as a number after visit 2.",
+   "subtitle": "ABHA 91-2612-3348-1056    prototype reading of these five slips only    not a clinical opinion"
+  },
+  "P2": {
+   "sheet": "P2_AI_Summary",
+   "headline": "Glucose falls on unchanged metformin plus bedtime glargine. Proteinuria is the extra finding.",
+   "body": "Mrs. Dummy 2, 70, Gorakhpur. Dummy ABHA 14-7004-8821-5590. Five follow-ups from 04/08/2000 to 04/05/2001. First slip: home readings still high, FBS 158, PPBS 205, no symptomatic hypo, no HbA1c. Then FBS 142, 128, 120, 116 and PPBS 188, 176, 164, 158. HbA1c appears only from visit 3: 6.8, then 6.6, then 6.5. Visit 3 is the only slip that records urine protein still positive, and the diagnosis that day is Type 2 Diabetes with proteinuria. Later slips go back to Type 2 Diabetes and say monitor renal function, without a new protein result. Medicines do not change: metformin 500 mg, 1 × 3 before meals, and insulin glargine 10 U at bedtime.",
+   "watch": "The glucose line improved without a dose change. The open item is the protein: noted once, asked to be repeated, not repeated as a number on the later slips.",
+   "subtitle": "ABHA 14-7004-8821-5590    prototype reading of these five slips only    not a clinical opinion"
+  }
+ },
+ "medVsTrend": {
+  "P1": [
+   {
+    "row": 6,
+    "sheet": "P1_Med_vs_Trend",
+    "visit": 1,
+    "date": "2026-12-03",
+    "medicine": "Tab. Metformin 500 mg, 1 tablet three times daily, before meals. No change.",
+    "fbs": 124,
+    "ppbs": 178,
+    "hba1c": 6.5,
+    "reading": "Same metformin. FBS 124, PPBS 178, HbA1c 6.5%. No earlier visit in this sheet, so this is the baseline. No hypo recorded."
+   },
+   {
+    "row": 7,
+    "sheet": "P1_Med_vs_Trend",
+    "visit": 2,
+    "date": "2027-03-03",
+    "medicine": "Metformin 500 mg, 1 × 3 before meals. Continued. No new drug.",
+    "fbs": 118,
+    "ppbs": 165,
+    "hba1c": 6.3,
+    "reading": "Medicine unchanged. FBS 124 → 118 (−6), PPBS 178 → 165 (−13), HbA1c 6.5 → 6.3 (−0.2). Dietary slip noted, but the fall continued. Renal function written as within range; no number given."
+   },
+   {
+    "row": 8,
+    "sheet": "P1_Med_vs_Trend",
+    "visit": 3,
+    "date": "2027-06-03",
+    "medicine": "Metformin 500 mg, 1 × 3 before meals. Continued.",
+    "fbs": 112,
+    "ppbs": 154,
+    "hba1c": 6.1,
+    "reading": "Medicine unchanged. FBS 118 → 112 (−6), PPBS 165 → 154 (−11), HbA1c 6.3 → 6.1 (−0.2). Third fall in a row on the same tablet."
+   },
+   {
+    "row": 9,
+    "sheet": "P1_Med_vs_Trend",
+    "visit": 4,
+    "date": "2027-09-03",
+    "medicine": "Existing treatment continued (metformin 500 mg, 1 × 3). No dose written as changed.",
+    "fbs": 109,
+    "ppbs": 148,
+    "hba1c": 6,
+    "reading": "Medicine unchanged. FBS 112 → 109 (−3), PPBS 154 → 148 (−6), HbA1c 6.1 → 6.0 (−0.1). Still falling, smaller steps."
+   },
+   {
+    "row": 10,
+    "sheet": "P1_Med_vs_Trend",
+    "visit": 5,
+    "date": "2027-12-03",
+    "medicine": "Existing treatment continued (metformin 500 mg, 1 × 3). No dose written as changed.",
+    "fbs": 106,
+    "ppbs": 142,
+    "hba1c": 5.9,
+    "reading": "Medicine unchanged across all five visits. FBS 109 → 106 (−3), PPBS 148 → 142 (−6), HbA1c 6.0 → 5.9 (−0.1). From the first slip: FBS −18, PPBS −36, HbA1c −0.6, with no drug added or stopped."
+   }
+  ],
+  "P2": [
+   {
+    "row": 6,
+    "sheet": "P2_Med_vs_Trend",
+    "visit": 1,
+    "date": "2000-08-04",
+    "medicine": "Tab. Metformin 500 mg, 1 × 3 before meals. Insulin glargine 10 U at bedtime. Both continued.",
+    "fbs": 158,
+    "ppbs": 205,
+    "hba1c": "—",
+    "reading": "Both drugs continued, no dose change. FBS 158, PPBS 205. HbA1c not on this slip. Home readings still high. No symptomatic hypo."
+   },
+   {
+    "row": 7,
+    "sheet": "P2_Med_vs_Trend",
+    "visit": 2,
+    "date": "2000-09-04",
+    "medicine": "Metformin regimen continued. Insulin glargine regimen continued. No dose change written.",
+    "fbs": 142,
+    "ppbs": 188,
+    "hba1c": "—",
+    "reading": "Same two drugs. FBS 158 → 142 (−16), PPBS 205 → 188 (−17). Slip itself says mild improvement. Still no HbA1c. No hypo documented."
+   },
+   {
+    "row": 8,
+    "sheet": "P2_Med_vs_Trend",
+    "visit": 3,
+    "date": "2000-11-04",
+    "medicine": "Existing diabetes treatment continued (metformin 500 mg 1 × 3 and glargine 10 U bedtime). No drug change written.",
+    "fbs": 128,
+    "ppbs": 176,
+    "hba1c": 6.8,
+    "reading": "Drugs unchanged while glucose fell again: FBS 142 → 128 (−14), PPBS 188 → 176 (−12). First HbA1c on file is 6.8%. New finding is urine protein still positive — diagnosis adds proteinuria. Advice asks for a repeat renal check; no new medicine is started for it on this slip."
+   },
+   {
+    "row": 9,
+    "sheet": "P2_Med_vs_Trend",
+    "visit": 4,
+    "date": "2001-02-04",
+    "medicine": "Metformin and insulin glargine continued. No dose change written.",
+    "fbs": 120,
+    "ppbs": 164,
+    "hba1c": 6.6,
+    "reading": "Same metformin and glargine. FBS 128 → 120 (−8), PPBS 176 → 164 (−12), HbA1c 6.8 → 6.6 (−0.2). No hypo reported. Protein is not re-written as a result; advice is only to keep watching renal function."
+   },
+   {
+    "row": 10,
+    "sheet": "P2_Med_vs_Trend",
+    "visit": 5,
+    "date": "2001-05-04",
+    "medicine": "Existing diabetes treatment continued (metformin 500 mg 1 × 3 and glargine 10 U bedtime). No dose change written.",
+    "fbs": 116,
+    "ppbs": 158,
+    "hba1c": 6.5,
+    "reading": "Drugs unchanged across all five visits. FBS 120 → 116 (−4), PPBS 164 → 158 (−6), HbA1c 6.6 → 6.5 (−0.1). From the first slip: FBS −42, PPBS −47. HbA1c, once it appears, 6.8 → 6.5. Proteinuria was recorded once and not repeated as a number."
+   }
+  ]
+ },
+ "notes": {
+  "banner": "SYNTHETIC / AI RESEARCH DATA  ·  NOT A REAL PRESCRIPTION",
+  "indexIntro": "Teal tabs are Mr. Dummy 1. Maroon tabs are Mrs. Dummy 2. Prescription and diagnostic report are the same text for now.",
+  "dataCaveat": "Dummy ABHA IDs were written for this sheet. The source slips had the ABHA line blank. Labs and advice are only what is printed. A blank HbA1c means that slip did not have one."
+ }
+}

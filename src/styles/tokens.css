@@ -1,0 +1,37 @@
+:root {
+  /* PRD §8.8 colour tokens */
+  --canvas: #F7F5F0;
+  --card: #FFFFFF;
+  --ink: #1A2F33;
+  --muted: #5B6770;
+  --divider: #E5E7EB;
+  --terracotta: #C26D5C;
+  --sage: #6B8E7D;
+  --cerulean: #4A8594;
+  --tint: #EDF0EF;
+  --warm: #F2E7E3;
+
+  /* AA-safe text variants of the accent colours (the base tokens fail 4.5:1 on white as text) */
+  --terracotta-ink: #A24A39;
+  --sage-ink: #44695A;
+  --cerulean-ink: #2B6272;
+  --cerulean-tint: #E4EEF1;
+  --sage-tint: #E5EEE9;
+  --ink-2: #2E4549;
+  --ink-soft: #3F565A;
+  --paper: #FFFDF8;
+  --line: #ECE8DF;
+
+  --font-display: 'Outfit Variable', 'Outfit', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius: 4px;
+  --radius-lg: 8px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+  --shadow-sm: 0 1px 2px rgba(26, 47, 51, .06);
+  --shadow-md: 0 6px 24px rgba(26, 47, 51, .10);
+  --shadow-lg: 0 16px 48px rgba(26, 47, 51, .18);
+  --rail-w: 236px;
+  --top-h: 60px;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+}
