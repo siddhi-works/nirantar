@@ -5,6 +5,7 @@ import { cx } from '@/ui/primitives';
 import { LookupPanel, Notifications, Schedule, TopBar, today } from './Chrome';
 import DoctorPatient from './DoctorPatient';
 import NursePatient from './NursePatient';
+import { OtherHospitals } from './Exchange';
 
 export function DoctorHome() {
   const open = useSession(s => s.openId);
@@ -18,6 +19,7 @@ export function DoctorHome() {
         <div className="cols">
           <div className="stack" style={{ gap: 18 }}>
             <LookupPanel title="Open a patient’s record" />
+            <OtherHospitals />
             <Schedule title="Today’s schedule" rows={DOCTOR_SCHEDULE} />
           </div>
           <Notifications items={DOCTOR_NOTES} />
@@ -40,11 +42,12 @@ export function NurseHome() {
         <div className="cols">
           <div className="stack" style={{ gap: 18 }}>
             <LookupPanel title="Open a patient’s record" />
+            <OtherHospitals />
             <Schedule title="Today’s schedule" rows={NURSE_SCHEDULE} />
           </div>
           <div className="stack" style={{ gap: 18 }}>
             <section className="card" data-accent="sage">
-              <div className="card__head"><h3 className="card__title">My tasks</h3></div>
+              <div className="card__head"><h2 className="card__title">My tasks</h2></div>
               <ul className="checks">
                 {NURSE_TASKS.map(t => (
                   <li key={t.id}><label className={cx(done[t.id] && 'is-done')}><input type="checkbox" checked={!!done[t.id]} onChange={e => setDone({ ...done, [t.id]: e.target.checked })} />{t.text}</label></li>

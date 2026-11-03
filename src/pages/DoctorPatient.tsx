@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, ClipboardList, Droplets, ExternalLink, FileText, FileUp, Pill } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardList, ClipboardPlus, Droplets, ExternalLink, FileText, FileUp, Pill } from 'lucide-react';
 import { api } from '@/api';
 import { useApi } from '@/api/hooks';
 import { useState } from 'react';
@@ -11,29 +11,34 @@ import { TrendChart } from '@/ui/charts/TrendChart';
 import { MedLane } from '@/ui/charts/Mini';
 import { domainOf } from '@/ui/charts/scale';
 import { useUi } from '@/ui/store';
-import { TopBar } from './Chrome';
+import { LoadError, TopBar } from './Chrome';
 import { UploadDialog } from './UploadDocument';
 import { ChecksList, buildChecks } from './Checks';
+import { RecordDialog } from './RecordResult';
+import { ReviewCard } from './Review';
+import { complications, monthsLabel, onRecordSince, vitalsNote } from '@/domain/profile';
 
 const dedupe = <T extends { id: string }>(xs: T[]) => xs.filter((x, i) => xs.findIndex(y => y.id === x.id) === i);
 
 export default function DoctorPatient() {
   const close = useSession(s => s.closePatient);
-  const vitals = useSession(s => s.vitals);
   const openId = useSession(s => s.openId)!;
-  const uploads = useSession(s => s.uploads).filter(u => u.patientId === openId);
   const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
   const openSource = useUi(s => s.openSource);
-  const { data: r } = useApi(() => api.getRecall(openId), [openId]);
+  const { data: r, error, refetch } = useApi(() => api.getRecall(openId), [openId]);
 
+  if (error && !r) return <LoadError message={error} onRetry={refetch} onBack={close} />;
   if (!r) return <div className="screen"><TopBar /><main className="wrap"><SkeletonCard h={140} /><SkeletonCard h={300} /></main></div>;
 
   const p = r.patient; const pid = p.id;
   const visitDates = r.changes.map(c => ({ visit: c.visit, date: c.date }));
-  const domain = domainOf(visitDates.map(v => v.date), 22);
+  const recordedDates = r.trends.flatMap(t => (t.recorded ?? []).map(p => p.date));
+  const domain = domainOf([...visitDates.map(v => v.date), ...recordedDates], 22);
   const T = Object.fromEntries(r.trends.map(t => [t.code, t])) as Record<string, TrendSeries>;
   const pick = (s: TrendSeries) => (pt: TrendPoint) => pt.citation && openSource({ kind: 'citation', citation: pt.citation, patientId: pid, title: `${s.label} ${pt.value!.toFixed(s.decimals)} ${s.unit === '%' ? '%' : s.unit}` });
   const lastChange = r.changes.at(-1)!;
+  const vit = vitalsNote(r); const cx2 = complications(r); const since = onRecordSince(r);
 
   return (
     <div className="screen">
@@ -46,6 +51,11 @@ export default function DoctorPatient() {
             <div className="grow">
               <h1>{p.name}</h1>
               <div className="phead__meta"><span>{p.age} years · {p.sex === 'F' ? 'Female' : 'Male'}</span><span>{p.weightKg} kg</span><span>{p.place}</span><span>ABHA {p.abhaId}</span><span>{r.diagnoses.at(-1)!.text}</span></div>
+              <div className="phead__cx" aria-label="Complications on record">
+                <span className="eyebrow">Complications</span>
+                {cx2.length ? cx2.map(c => <span key={c.label} className="chip chip--outline">{c.label} <small>(first on record {fmtDate(c.since)} · {monthsLabel(c.months)})</small></span>) : <span className="muted">None written on any slip or report</span>}
+                {since && <span className="muted">(diabetes on record since {fmtDate(since.since)} · {monthsLabel(since.months)})</span>}
+              </div>
             </div>
             <div className="row" style={{ gap: 8 }}><a className="btn btn--secondary" href={originalPdfUrl(pid)} target="_blank" rel="noopener noreferrer"><ExternalLink size={15} />View original document</a><Button onClick={() => setUploading(true)} icon={<FileUp size={15} />}>Upload document</Button></div>
             <div className="phead__last"><span className="eyebrow">Last visit</span><b>{fmtDate(p.lastVisitDate)}</b><small>visit {r.visits.length} of {r.visits.length} on record</small></div>
@@ -67,18 +77,18 @@ export default function DoctorPatient() {
             <ul className="chgs">
               {lastChange.items.filter(i => ['measure', 'medication'].includes(i.kind)).map(i => (
                 <li key={i.id}><span className="muted">{i.label}</span><span className="grow" />{i.from && <span className="muted num">{i.from} →</span>}<b className="num">{i.to}</b>
-                  {i.kind === 'measure' && i.delta !== undefined && <span className={cx('delta', i.tone === 'good' ? 'delta--good' : 'delta--neutral')}>{i.delta > 0 ? '+' : '−'}{Math.abs(i.delta).toFixed(i.unit === '%' ? 1 : 0)}</span>}
+                  {i.kind === 'measure' && i.delta !== undefined && <span className={cx('delta', i.tone === 'good' ? 'delta--good' : 'delta--neutral')}>{i.delta === 0 ? '' : i.delta > 0 ? '+' : '−'}{Math.abs(i.delta).toFixed(i.unit === '%' ? 1 : 0)}</span>}
                   {i.kind === 'medication' && <span className="delta delta--neutral">{i.to}</span>}
                   {i.citation && <SourceChip citation={i.citation} patientId={pid} />}</li>
               ))}
             </ul>
-            {vitals?.patientId === pid && <div className="vit"><CheckCircle2 size={15} /><span><b>Vitals recorded today by {vitals.by}:</b> BP {vitals.sbp}/{vitals.dbp} mmHg · {vitals.weight} kg · {vitals.height} cm · pulse {vitals.pulse}</span></div>}
+            {vit && <div className="vit"><CheckCircle2 size={15} /><span><b>Vitals recorded {fmtDate(vit.date)} by {vit.by}:</b> {[vit.bp && `BP ${vit.bp}`, vit.weight, vit.height, vit.pulse && `pulse ${vit.pulse}`, vit.bmi && `BMI ${vit.bmi}`].filter(Boolean).join(' · ')}</span></div>}
           </Card>
         </div>
 
         {/* trends */}
         <Card accent="ink">
-          <CardHead title="Trends" icon={<Droplets size={16} />} right={<span className="hint">Click a point to see the slip it came from</span>} />
+          <CardHead title="Trends" icon={<Droplets size={16} />} right={<span className="hint">Click a point to see where it came from. <span aria-hidden="true">◆</span> marks a value recorded or uploaded here.</span>} />
           <div className="trio">
             {(['hba1c', 'fbs', 'ppbs'] as const).map(c => (
               <div key={c}>
@@ -105,24 +115,18 @@ export default function DoctorPatient() {
 
           {/* checks */}
           <Card accent="terracotta">
-            <CardHead title="Checks — on record and not on record" icon={<ClipboardList size={16} />} />
-            <ChecksList rows={buildChecks(r, vitals)} />
+            <CardHead title="Checks — on record and not on record" icon={<ClipboardList size={16} />} right={<Button size="sm" variant="secondary" onClick={() => setRecording(true)} icon={<ClipboardPlus size={14} />}>Record a result</Button>} />
+            <ChecksList sections={buildChecks(r)} />
           </Card>
         </div>
-
-        {uploads.length > 0 && (
-          <Card accent="sage">
-            <CardHead title="Uploaded documents" icon={<FileUp size={16} />} />
-            <ul className="chk">{uploads.map(u => <li key={u.id}><span className="chk__i"><FileText size={18} /></span><span className="grow"><b>{u.name}</b><small>{u.type} · {u.size} · uploaded by {u.by}, {u.at}</small></span><span className="chip chip--sage">Uploaded</span></li>)}</ul>
-          </Card>
-        )}
+        <ReviewCard patientId={pid} onUpload={() => setUploading(true)} />
 
         {/* visit history */}
         <Card accent="cerulean">
           <CardHead title="Visit history" icon={<FileText size={16} />} />
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ overflowX: 'auto', position: 'relative' }}>
             <table className="table">
-              <thead><tr><th>Visit</th><th>Date</th><th>FBS</th><th>PPBS</th><th>HbA1c</th><th>Complaint and advice</th><th /></tr></thead>
+              <thead><tr><th>Visit</th><th>Date</th><th>FBS</th><th>PPBS</th><th>HbA1c</th><th>Complaint and advice</th><th><span className="sr-only">Source</span></th></tr></thead>
               <tbody>
                 {[...r.changes].reverse().map(c => <VisitRow key={c.visit} r={r} visit={c.visit} />)}
               </tbody>
@@ -132,6 +136,7 @@ export default function DoctorPatient() {
         <p className="hint" style={{ textAlign: 'center', margin: '8px 0 24px' }}>Prototype with synthetic data. Generated summaries are drafts for the clinician to review.</p>
       </main>
       {uploading && <UploadDialog patientId={pid} onClose={() => setUploading(false)} />}
+      {recording && <RecordDialog patientId={pid} onClose={() => setRecording(false)} />}
     </div>
   );
 }

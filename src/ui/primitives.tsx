@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
 import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, CircleDashed, Equal, FileSearch, FileText, PencilLine, Sparkles } from 'lucide-react';
 import type { AbsenceEvidence, ChangeItem, Citation, GapStatus, OrganState, Severity, VerificationState } from '@/domain/types';
@@ -15,7 +16,7 @@ export function Card({ accent, className, children, style, onClick, as: As = 'se
 export function CardHead({ title, icon, right }: { title: ReactNode; icon?: ReactNode; right?: ReactNode }) {
   return (
     <div className="card__head">
-      <h3 className="card__title">{icon}{title}</h3>
+      <h2 className="card__title">{icon}{title}</h2>
       {right}
     </div>
   );
@@ -108,15 +109,16 @@ export function docShort(docId: string): string {
 
 export function SourceChip({ citation, patientId, title, label }: { citation: Citation; patientId: string; title?: string; label?: string }) {
   const open = useUi(s => s.openSource);
-  const staff = !!citation.closureRef;
+  const staff = !!citation.closureRef || !!citation.source;
+  const name = citation.source ? (citation.source.kind === 'upload' ? 'Uploaded document' : 'Entered by staff') : staff ? 'Staff-entered' : docShort(citation.docId);
   return (
     <button
       type="button" className={cx('src', staff && 'src--staff')}
       title={`Open source: “${citation.quote.slice(0, 90)}${citation.quote.length > 90 ? '…' : ''}”`}
-      aria-label={`Open source: ${label ?? docShort(citation.docId)}${title ? `, ${title}` : ''}`}
+      aria-label={`Open source: ${label ?? name}${title ? `, ${title}` : ''}`}
       onClick={e => { e.stopPropagation(); open({ kind: 'citation', citation, patientId, title }); }}
     >
-      <FileText size={11} />{label ?? (staff ? 'Staff-entered' : docShort(citation.docId))}
+      <FileText size={11} />{label ?? name}
     </button>
   );
 }
@@ -124,7 +126,7 @@ export function SourceChip({ citation, patientId, title, label }: { citation: Ci
 export function AbsenceChip({ absence, patientId, title }: { absence: AbsenceEvidence; patientId: string; title: string }) {
   const open = useUi(s => s.openSource);
   return (
-    <button type="button" className="src src--absent" aria-label={`Show what was searched: ${title}`}
+    <button type="button" className="src src--absent" aria-label={`Searched ${absence.searchedDocIds.length} docs · 0 found: ${title}`}
       onClick={e => { e.stopPropagation(); open({ kind: 'absence', absence, patientId, title }); }}>
       <FileSearch size={11} />Searched {absence.searchedDocIds.length} docs · 0 found
     </button>
@@ -145,4 +147,39 @@ export function CiteValue({ citation, patientId, children, title }: { citation?:
 
 export function Pill({ children, tone }: { children: ReactNode; tone?: 'sage' | 'terracotta' | 'cerulean' | 'ink' }) {
   return <span className={cx('chip', tone === 'sage' && 'chip--sage', tone === 'terracotta' && 'chip--moderate', tone === 'cerulean' && 'chip--cerulean', tone === 'ink' && 'chip--ink')}>{children}</span>;
+}
+
+
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * A dialog that behaves like one for keyboard and screen-reader users: focus moves into it, Tab stays inside it,
+ * Escape closes it, and focus goes back to where it was. `locked` stops Escape and outside clicks while work is running.
+ */
+export function Modal({ label, onClose, locked, wide, children }: { label: string; onClose: () => void; locked?: boolean; wide?: boolean; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const latest = useRef({ onClose, locked });
+  latest.current = { onClose, locked };
+  useEffect(() => {
+    const el = ref.current!;
+    const before = document.activeElement as HTMLElement | null;
+    const items = () => [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(n => n.getAttribute('aria-hidden') !== 'true');
+    (items().find(n => n.matches('input,select,textarea')) ?? items()[0] ?? el).focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !latest.current.locked) { e.stopPropagation(); latest.current.onClose(); return; }
+      if (e.key !== 'Tab') return;
+      const f = items();
+      if (!f.length) { e.preventDefault(); return; }
+      const first = f[0]; const last = f[f.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === el)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    el.addEventListener('keydown', onKey);
+    return () => { el.removeEventListener('keydown', onKey); before?.focus?.(); };
+  }, []);
+  return (
+    <div className="modal-wrap" onMouseDown={e => { if (e.target === e.currentTarget && !locked) onClose(); }}>
+      <div ref={ref} className={cx('modal card', wide && 'xmodal')} role="dialog" aria-modal="true" aria-label={label} tabIndex={-1}>{children}</div>
+    </div>
+  );
 }

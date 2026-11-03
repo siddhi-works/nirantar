@@ -55,13 +55,13 @@ export function LookupPanel({ title }: { title: string }) {
     e.preventDefault();
     if (digits(abha).length !== 14) { setState('notfound'); setFound(null); return; }
     setState('fetching');
-    const hits = await api.searchPatients(abha);
-    setTimeout(() => {
-      const hit = hits.find(h => h.patient.abhaId === formatAbha(abha));
-      if (!hit) { setState('notfound'); setFound(null); return; }
-      setFound(hit.patient.name); setName(hit.patient.name);
-      setTimeout(() => { setState('idle'); openPatient(hit.patient.id); }, 650);
-    }, 900);
+    try {
+      const hit = await api.lookup(abha);
+      setFound(hit.name); setName(hit.name);
+      setTimeout(() => { setState('idle'); openPatient(hit.patientId); }, 650);
+    } catch {
+      setState('notfound'); setFound(null);
+    }
   };
 
   return (
@@ -86,7 +86,7 @@ const NOTE_ICON = { lab: FlaskConical, msg: MessageSquare, alert: AlertTriangle,
 export function Notifications({ items }: { items: { icon: keyof typeof NOTE_ICON; title: string; sub: string; time: string }[] }) {
   return (
     <section className="card" data-accent="terracotta">
-      <div className="card__head"><h3 className="card__title"><Bell size={16} />Notifications</h3><span className="chip chip--outline">{items.length} new</span></div>
+      <div className="card__head"><h2 className="card__title"><Bell size={16} />Notifications</h2><span className="chip chip--outline">{items.length} new</span></div>
       <ul className="notes">
         {items.map(n => { const I = NOTE_ICON[n.icon]; return (
           <li key={n.title} className={cx(n.icon === 'alert' && 'is-alert')}><span className="notes__i"><I size={16} /></span><span className="grow"><b>{n.title}</b><small>{n.sub}</small></span><time>{n.time}</time></li>
@@ -99,7 +99,7 @@ export function Notifications({ items }: { items: { icon: keyof typeof NOTE_ICON
 export function Schedule({ title, rows }: { title: string; rows: Slot[] }) {
   return (
     <section className="card" data-accent="cerulean">
-      <div className="card__head"><h3 className="card__title"><CalendarClock size={16} />{title}</h3><span className="chip chip--outline">{today()}</span></div>
+      <div className="card__head"><h2 className="card__title"><CalendarClock size={16} />{title}</h2><span className="chip chip--outline">{today()}</span></div>
       <ul className="sched">
         {rows.map(r => (
           <li key={r.time + r.title}>
@@ -110,5 +110,27 @@ export function Schedule({ title, rows }: { title: string; rows: Slot[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+
+/** What a screen shows when its data could not be loaded: the reason, a retry, and a way back. */
+export function LoadError({ message, onRetry, onBack }: { message: string; onRetry: () => void; onBack?: () => void }) {
+  return (
+    <div className="screen">
+      <TopBar />
+      <main className="wrap wrap--narrow">
+        <section className="card" data-accent="terracotta" role="alert">
+          <div className="card__head"><h2 className="card__title"><AlertTriangle size={16} />This page could not be opened</h2></div>
+          <div className="card__body">
+            <p>{message}</p>
+            <div className="row" style={{ gap: 8, marginTop: 12 }}>
+              <button className="btn" onClick={onRetry}>Try again</button>
+              {onBack && <button className="btn btn--secondary" onClick={onBack}>Back to the dashboard</button>}
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }

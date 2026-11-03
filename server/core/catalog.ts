@@ -1,4 +1,4 @@
-import type { RuleDefinition } from '@/domain/types';
+import type { RuleDefinition } from '../../src/domain/types';
 
 const EFFECTIVE = 'Prototype ruleset v0.1 — pending clinical sign-off';
 

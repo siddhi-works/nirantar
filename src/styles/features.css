@@ -183,7 +183,7 @@ button.duerow:hover { background: var(--tint); }
 .covlist li.miss { color: var(--ink-soft); }
 
 /* ═════════ trends ═════════ */
-.tchart { position: relative; }
+.tchart { position: relative; min-width: 0; max-width: 100%; }
 .tchart svg { display: block; overflow: visible; }
 .tchart__tick { font: 500 11px var(--font-body); fill: var(--muted); }
 .tchart__band { font: 700 10px var(--font-body); fill: var(--sage-ink); letter-spacing: .06em; text-transform: uppercase; }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildRecall, EMPTY_OPS } from './engine';
 import { HIS_MED_VS_TREND } from './parse';
-import type { Task } from '@/domain/types';
+import type { Task } from '../../src/domain/types';
 
 const p1 = buildRecall('P1');
 const p2 = buildRecall('P2');

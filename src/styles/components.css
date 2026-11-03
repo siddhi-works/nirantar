@@ -146,3 +146,51 @@
 .kv { display: grid; grid-template-columns: 124px 1fr; gap: 8px 14px; font-size: 13px; }
 .kv dt { color: var(--muted); font-weight: 500; }
 .kv dd { margin: 0; min-width: 0; }
+
+/* grouped checks lists */
+.chk__group { margin: 18px 0 2px; padding: 0 var(--space-4, 16px); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #5b6b78); }
+.chk__group:first-child { margin-top: 4px; }
+
+/* complications line under the patient name */
+.phead__cx { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; font-size: 13px; }
+.phead__cx .eyebrow { margin-right: 2px; }
+.phead__cx small { font-size: 12px; color: var(--muted); }
+
+/* uploaded documents and values waiting for review */
+.rvdoc { padding: 12px 0; border-top: 1px solid var(--line, #e3e8ec); }
+.rvdoc:first-child { border-top: 0; padding-top: 0; }
+.rvdoc__head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rvdoc__head small { display: block; color: var(--muted); font-size: 12px; }
+.rvlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rv { border: 1px solid var(--line, #e3e8ec); border-radius: 8px; padding: 10px 12px; }
+.rv.is-flag { border-color: var(--terracotta, #b4532a); }
+.rv__main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rv small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.rv__warn { color: var(--terracotta, #b4532a) !important; }
+.rv q { quotes: none; background: var(--cerulean-tint, #e8f1f6); padding: 0 4px; border-radius: 3px; }
+
+/* record exchange */
+.xc { border: 1px solid var(--line, #e3e8ec); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+.xc small, .xlist small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.xlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.xlist li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--line, #e3e8ec); }
+.xlist li:first-child { border-top: 0; }
+.xform { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, .8fr) auto; gap: 10px; align-items: end; }
+@media (max-width: 720px) { .xform { grid-template-columns: 1fr; } }
+.xmodal { max-width: 760px; width: calc(100vw - 32px); max-height: calc(100vh - 48px); overflow-y: auto; }
+.xban { display: flex; gap: 10px; align-items: flex-start; background: var(--cerulean-tint, #e8f1f6); border-radius: 8px; padding: 10px 12px; font-size: 13.5px; }
+.xban svg { flex: none; margin-top: 2px; }
+.xjson { margin-top: 8px; max-height: 320px; overflow: auto; background: var(--ink, #14262e); color: #dfeaf0; border-radius: 8px; padding: 12px; font-size: 12px; line-height: 1.5; }
+
+/* the simulator label, on every screen */
+.simbanner { position: fixed; left: 12px; bottom: 12px; z-index: 80; background: var(--ink, #14262e); color: #fff; font-size: 12px; padding: 5px 11px; border-radius: 999px; opacity: .92; pointer-events: none; max-width: calc(100vw - 24px); }
+.linklike { background: none; border: 0; padding: 0; color: var(--cerulean-ink, #2b6f8f); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; text-align: left; }
+
+/* language toggle */
+.lang { display: inline-flex; border: 1px solid var(--line, #d9e0e5); border-radius: 999px; overflow: hidden; background: var(--paper, #fff); }
+.lang button { border: 0; background: none; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; color: inherit; }
+.lang button.is-on { background: var(--ink, #14262e); color: #fff; }
+#root { padding-bottom: 44px; } /* keeps the simulator label clear of the last line of content */
+
+.simbanner__short { display: none; }
+@media (max-width: 560px) { .simbanner__long { display: none; } .simbanner__short { display: inline; } .simbanner { left: 8px; bottom: 8px; font-size: 11px; padding: 4px 10px; } }

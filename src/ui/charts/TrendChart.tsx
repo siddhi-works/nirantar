@@ -31,7 +31,8 @@ export function TrendChart({ series, domain, height = 190, hoverVisit, onHover, 
   const minGap = xs.length > 1 ? Math.min(...xs.slice(1).map((v, i) => v - xs[i])) : 999;
   const compact = minGap < 72;
   const read = series.points.filter(p => p.value !== null);
-  const vals = read.map(p => p.value!);
+  const rec = series.recorded ?? [];
+  const vals = [...read, ...rec].map(p => p.value!);
   const t = series.target;
   const cand = [...vals];
   if (t?.min !== undefined) cand.push(t.min);
@@ -56,7 +57,7 @@ export function TrendChart({ series, domain, height = 190, hoverVisit, onHover, 
 
   return (
     <div ref={ref} className="tchart" style={{ height }} onMouseLeave={() => { setTip(null); onHover?.(null); }}>
-      <svg width={W} height={height} role="img" aria-label={series.summary}>
+      <svg width={W} height={height} role="group" aria-label={series.summary}>
         {/* grid */}
         {ticks.map(tk => (
           <g key={tk}>
@@ -115,14 +116,28 @@ export function TrendChart({ series, domain, height = 190, hoverVisit, onHover, 
             </g>
           );
         })}
+        {/* recorded in the app or confirmed from an uploaded document: diamonds, not joined to the slip line */}
+        {rec.map(p => {
+          const cx = x(p.date); const cy = y(p.value!);
+          return (
+            <g key={p.factId} className="tchart__pt" tabIndex={0} role="button"
+              aria-label={`${series.label} ${fmt(p.value!)} ${series.unit}, recorded ${fmtDate(p.date)}${p.citation?.source ? (p.citation.source.kind === 'upload' ? ', from an uploaded document' : ', entered by staff') : ''}. Open source.`}
+              onMouseEnter={() => setTip(p)} onFocus={() => setTip(p)} onBlur={() => setTip(null)}
+              onClick={() => onSelect?.(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(p); } }}>
+              <circle cx={cx} cy={cy} r={16} fill="transparent" />
+              <rect x={cx - 5.5} y={cy - 5.5} width={11} height={11} transform={`rotate(45 ${cx} ${cy})`} fill="var(--cerulean-tint)" stroke={bandColor(p.band)} strokeWidth={2.2} />
+              <text x={cx} y={cy - 13} textAnchor="middle" className="tchart__val" style={{ fill: bandColor(p.band) }}>{fmt(p.value!)}</text>
+            </g>
+          );
+        })}
       </svg>
       {tip && tip.value !== null && (
         <div className="tchart__tip" style={{ left: Math.min(Math.max(x(tip.date), 90), W - 100), top: Math.max(0, y(tip.value) - 92) }}>
           <b>{series.label} {fmt(tip.value)} {series.unit}</b>
-          <span>Visit {tip.visit} · {fmtDate(tip.date)}</span>
+          <span>{tip.visit ? `Visit ${tip.visit}` : tip.citation?.source?.kind === 'upload' ? 'From an uploaded document' : 'Recorded by staff'} · {fmtDate(tip.date)}</span>
           {tip.deltaPrev !== null && <span>{signed(tip.deltaPrev, dec)} vs previous reading</span>}
           {tip.deltaBase !== null && <span>{signed(tip.deltaBase, dec)} vs first reading</span>}
-          {tip.citation && <span className="tchart__tip-src">{docShort(tip.citation.docId)} · click to open</span>}
+          {tip.citation && <span className="tchart__tip-src">{tip.visit ? docShort(tip.citation.docId) : 'Source'} · click to open</span>}
         </div>
       )}
     </div>

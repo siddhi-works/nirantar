@@ -2,6 +2,9 @@
 
 export const FACILITY = { name: 'District Hospital, Gorakhpur', hfr: 'IN2900011882' };
 
+export const OTHER_FACILITY = { name: 'Civil Hospital, Lucknow', hfr: 'IN0900022991' };
+export const OTHER_DOCTOR = { id: '71-6100-2255-3094' };
+
 export const CREDENTIALS = {
   doctor: { id: '71-3304-9082-1176', facility: FACILITY.hfr, otp: '482915', name: 'Dr. Meenakshi Srivastava', line: 'Reg. 98761 · General Medicine' },
   nurse: { id: '71-5521-0044-8730', facility: FACILITY.hfr, otp: '482915', name: 'Sr. Kavita Mishra', line: 'Staff Nurse · OPD 3' },

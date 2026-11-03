@@ -3,6 +3,8 @@
  * backend only has to honour them. Mirrors the PRD data model: evidence → fact → gap → task.
  */
 
+import type { ObsOrigin, ObsStatus } from './observations';
+
 export type ISODate = string; // YYYY-MM-DD
 export type PatientId = string;
 export type Role = 'doctor' | 'nurse' | 'coordinator';
@@ -67,6 +69,22 @@ export interface Citation {
   alsoIn?: string[];
   /** Staff-entered evidence has no slip; it points at a closure record instead */
   closureRef?: { taskId: string; label: string };
+  /** A value that came from a document someone uploaded, or was typed in by staff: not from a follow-up slip */
+  source?: CitationSource;
+}
+
+export interface CitationSource {
+  kind: ObsOrigin;
+  observationId: string;
+  documentId?: string;
+  status: ObsStatus;
+  by: string;
+  at: string;
+  /** What the value was when it was first read from the document or entered, before any correction */
+  original?: string;
+  /** Why an extracted value was flagged for a closer look */
+  flagged?: string;
+  correctionReason?: string;
 }
 
 /** "Absence is a finding": what was searched and not found. */
@@ -149,6 +167,8 @@ export interface TrendSeries {
   lowerIsBetter: boolean;
   target?: TargetBand;
   points: TrendPoint[];
+  /** Values recorded in the app or confirmed from an uploaded document, shown beside the slip readings, never joined to them. */
+  recorded: TrendPoint[];
   latest: TrendPoint | null;
   firstReading: TrendPoint | null;
   inBand: { in: number; of: number };

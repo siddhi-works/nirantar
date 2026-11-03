@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle2, ExternalLink, FileText, FileUp, HeartPulse, Pill, Save } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardPlus, ExternalLink, FileUp, HeartPulse, Pill, Save } from 'lucide-react';
 import { api } from '@/api';
 import { useApi } from '@/api/hooks';
 import { fmtDate } from '@/domain/format';
@@ -7,39 +7,46 @@ import { useSession } from '@/session';
 import { originalPdfUrl } from '@/domain/originals';
 import { Button, Card, CardHead, SkeletonCard, SourceChip } from '@/ui/primitives';
 import { useUi } from '@/ui/store';
-import { TopBar } from './Chrome';
+import { LoadError, TopBar } from './Chrome';
 import { UploadDialog } from './UploadDocument';
 import { ChecksList, buildChecks } from './Checks';
+import { RecordDialog } from './RecordResult';
+import { ReviewCard } from './Review';
+import { bmi as bmiOf } from '@/domain/observations';
+import { vitalsNote } from '@/domain/profile';
 
 export default function NursePatient() {
   const close = useSession(s => s.closePatient);
-  const vit = useSession(s => s.vitals);
-  const user = useSession(s => s.user);
-  const saved = vit?.patientId === useSession.getState().openId ? vit : null;
-  const saveVitals = useSession(s => s.saveVitals);
   const toast = useUi(s => s.toast);
   const openId = useSession(s => s.openId)!;
-  const uploads = useSession(s => s.uploads).filter(u => u.patientId === openId);
   const [uploading, setUploading] = useState(false);
-  const { data: r } = useApi(() => api.getRecall(openId), [openId]);
+  const [recording, setRecording] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const { data: r, error, refetch } = useApi(() => api.getRecall(openId), [openId]);
   const [f, setF] = useState({ sbp: '', dbp: '', weight: '', height: '', pulse: '' });
   const [err, setErr] = useState('');
+  if (error && !r) return <LoadError message={error} onRetry={refetch} onBack={close} />;
   if (!r) return <div className="screen"><TopBar /><main className="wrap"><SkeletonCard h={300} /></main></div>;
   const p = r.patient; const pid = p.id;
   const last = r.changes.at(-1)!;
   const rx = r.documents.filter(d => d.kind === 'prescription').at(-1)!;
   const T = Object.fromEntries(r.trends.map(t => [t.code, t]));
 
-  const submit = (e: React.FormEvent) => {
+  const vit = vitalsNote(r);
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const n = (k: keyof typeof f) => Number(f[k]);
     if (!f.sbp || !f.dbp || !f.weight || !f.height) { setErr('Enter BP (both numbers), weight and height.'); return; }
-    if (n('sbp') < 60 || n('sbp') > 260 || n('dbp') < 30 || n('dbp') > 160) { setErr('That blood pressure looks implausible. Check the reading and re-enter.'); return; }
-    setErr('');
-    saveVitals({ ...f, patientId: pid, pulse: f.pulse || '—', by: user?.name ?? 'Nurse' });
-    toast('Vitals saved — the doctor can see them now');
+    setBusy(true); setErr('');
+    try {
+      await api.recordValues(pid, [
+        { code: 'sbp', value: f.sbp }, { code: 'dbp', value: f.dbp }, { code: 'weight', value: f.weight },
+        { code: 'height', value: f.height }, { code: 'pulse', value: f.pulse },
+      ]);
+      setF({ sbp: '', dbp: '', weight: '', height: '', pulse: '' });
+      toast('Vitals saved. The doctor can see them now.');
+    } catch (e2) { setErr(e2 instanceof Error ? e2.message : 'Could not save the vitals.'); } finally { setBusy(false); }
   };
-  const bmi = f.weight && f.height ? (Number(f.weight) / (Number(f.height) / 100) ** 2).toFixed(1) : null;
+  const bmi = f.weight && f.height && Number(f.height) > 0 ? bmiOf(Number(f.weight), Number(f.height)).toFixed(1) : null;
 
   return (
     <div className="screen">
@@ -54,7 +61,7 @@ export default function NursePatient() {
 
         <div className="cols cols--even">
           <Card accent="cerulean">
-            <CardHead title="Record today’s vitals" icon={<HeartPulse size={16} />} right={saved ? <span className="chip chip--sage"><CheckCircle2 size={12} />Saved</span> : <span className="chip chip--dashed">Not recorded yet</span>} />
+            <CardHead title="Record today’s vitals" icon={<HeartPulse size={16} />} right={vit ? <span className="chip chip--sage"><CheckCircle2 size={12} />Last saved {fmtDate(vit.date)}</span> : <span className="chip chip--dashed">Not recorded yet</span>} />
             <form className="card__body vitals" onSubmit={submit}>
               <div className="grid2" style={{ gap: 14 }}>
                 <div className="field"><label htmlFor="sbp">Systolic BP</label><div className="input-unit"><input id="sbp" className="input" type="number" value={f.sbp} onChange={e => setF({ ...f, sbp: e.target.value })} /><span>mmHg</span></div></div>
@@ -66,15 +73,15 @@ export default function NursePatient() {
               </div>
               <p className="hint" style={{ margin: '10px 0' }}>Blood pressure and height are not on any earlier slip. Saved readings appear in the doctor’s record.</p>
               {err && <div className="error-text" role="alert">{err}</div>}
-              <div className="row"><Button icon={<Save size={15} />}>Save vitals</Button>
+              <div className="row"><Button icon={<Save size={15} />} disabled={busy}>Save vitals</Button>
                 <Button type="button" variant="secondary" icon={<FileUp size={15} />} onClick={() => setUploading(true)}>Upload document</Button></div>
             </form>
           </Card>
 
           <div className="stack" style={{ gap: 18 }}>
             <Card accent="sage">
-              <CardHead title="Checks — on record and not on record" />
-              <ChecksList rows={buildChecks(r, vit)} />
+              <CardHead title="Checks — on record and not on record" right={<Button size="sm" variant="secondary" onClick={() => setRecording(true)} icon={<ClipboardPlus size={14} />}>Record a result</Button>} />
+              <ChecksList sections={buildChecks(r)} />
             </Card>
             <Card accent="terracotta">
               <CardHead title="Last visit at a glance" />
@@ -90,14 +97,10 @@ export default function NursePatient() {
             </Card>
           </div>
         </div>
-        {uploads.length > 0 && (
-          <Card accent="sage">
-            <CardHead title="Uploaded documents" icon={<FileUp size={16} />} />
-            <ul className="chk">{uploads.map(u => <li key={u.id}><span className="chk__i"><FileText size={18} /></span><span className="grow"><b>{u.name}</b><small>{u.type} · {u.size} · uploaded by {u.by}, {u.at}</small></span><span className="chip chip--sage">Uploaded</span></li>)}</ul>
-          </Card>
-        )}
+        <ReviewCard patientId={pid} onUpload={() => setUploading(true)} />
       </main>
       {uploading && <UploadDialog patientId={pid} onClose={() => setUploading(false)} />}
+      {recording && <RecordDialog patientId={pid} onClose={() => setRecording(false)} />}
     </div>
   );
 }

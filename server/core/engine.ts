@@ -2,14 +2,14 @@
  * Deterministic rules engine ("Tier 0"). Pure functions over facts + ops state → Recall payload.
  * Nothing here guesses: every gap names its rule, version, triggering citations and due state.
  */
-import { PROTOCOL, ROLE_LABEL } from '@/domain/forms';
-import { diffDays, fmtDate, joinList, monthsBetween, plural, round, signed, visitsLabel } from '@/domain/format';
+import { PROTOCOL, ROLE_LABEL } from '../../src/domain/forms';
+import { diffDays, fmtDate, joinList, monthsBetween, plural, round, signed, visitsLabel } from '../../src/domain/format';
 import type {
   AbsenceEvidence, ActivityEvent, AttentionItem, BriefingLine, ChangeItem, Citation, CoverageField, DomainId, DueItem,
   Fact, Finding, FollowUpCheck, Gap, GapStatus, Medication, MissingMeasure, MissingMeasureCode, OrganDomain,
   OrganFinding, OrganMeasure, OrganState, PlanItem, PlanStatus, Recall, Role, RuleEvaluation, Severity, Task,
   TrendPoint, TrendSeries, Trigger, VisitChange, MeasureCode, SourceDocument, Patient, TargetBand,
-} from '@/domain/types';
+} from '../../src/domain/types';
 import { HIS_AI, HIS_MED_VS_TREND, addDays, addMonths, parseRecord, type PlanSeed } from './parse';
 import { RULE_CATALOG, ruleById } from './catalog';
 
@@ -17,6 +17,10 @@ export interface Ops {
   tasks: Task[];
   verifications: Record<string, { by: string; at: string }>;
   aiAccepted: Record<string, { by: string; at: string }>;
+  /** Confirmed values recorded in the database (typed in by staff, or read from an uploaded document and confirmed). */
+  observations?: Fact[];
+  /** Corrections to values read from follow-up slips, keyed by fact id. The slip itself is never changed. */
+  corrections?: Record<string, { value: number | string; by: string; at: string; reason: string }>;
 }
 export const EMPTY_OPS: Ops = { tasks: [], verifications: {}, aiAccepted: {} };
 
@@ -92,7 +96,11 @@ function buildSeries(code: MeasureCode, facts: Fact[], visits: number[], dates: 
       : `${m.label}: ${fmtV(first.value!, m.decimals, m.unit)} at visit ${first.visit} to ${fmtV(latest.value!, m.decimals, m.unit)} at visit ${latest.visit}, a change of ${signed(latest.deltaBase ?? 0, m.decimals)}.`;
     if (m.target) summary += ` ${inBand.in} of ${inBand.of} readings within the ${m.target.label} band.`;
   }
-  return { code, ...m, points, latest, firstReading: first, inBand, summary };
+  const recorded: TrendPoint[] = facts
+    .filter(f => f.source === 'staff-entered' && f.code === code && typeof f.value === 'number')
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+    .map(f => ({ visit: 0, date: f.date, value: f.value as number, factId: f.id, citation: f.citation, deltaPrev: null, deltaBase: null, band: bandOf(f.value as number, m.target), verification: f.verification }));
+  return { code, ...m, points, recorded, latest, firstReading: first, inBand, summary };
 }
 
 /* ───────────────────────── absence search ───────────────────────── */
@@ -121,8 +129,16 @@ export function buildRecall(patientId: string, ops: Ops = EMPTY_OPS): Recall {
   const tasks = ops.tasks.filter(t => t.patientId === patientId);
 
   const hisFacts = rec.facts.filter(f => f.patientId === patientId);
-  const staff = staffFacts(patient, tasks);
+  const staff = [...staffFacts(patient, tasks), ...(ops.observations ?? []).filter(f => f.patientId === patientId)];
   const applyVerif = (f: Fact): Fact => {
+    const corr = f.source === 'his-import' ? ops.corrections?.[f.id] : undefined;
+    if (corr) {
+      const shown = typeof corr.value === 'number' ? `${corr.value}${f.unit ? (f.unit === '%' ? '%' : ' ' + f.unit) : ''}` : String(corr.value);
+      return {
+        ...f, value: corr.value, display: `${f.label} ${shown}`, verification: 'corrected', verifiedBy: corr.by, verifiedAt: corr.at,
+        detail: { ...f.detail, originalValue: f.value ?? null, correctionReason: corr.reason },
+      };
+    }
     const v = ops.verifications[f.id];
     return v ? { ...f, verification: 'verified', verifiedBy: v.by, verifiedAt: v.at } : f;
   };
@@ -531,7 +547,7 @@ export function buildRecall(patientId: string, ops: Ops = EMPTY_OPS): Recall {
   /* ───────── briefing ───────── */
   const dxFirst = diagnoses[0]; const dxLast = diagnoses.at(-1)!;
   const briefing: BriefingLine[] = [];
-  briefing.push({ id: 'b1', text: `${dxLast.text}. ${N} follow-ups on record, ${fmtDate(dates[visits[0]])} to ${fmtDate(dates[visits.at(-1)!])}${diagnoses.some(d => d.changedFromPrev) ? `; the diagnosis line adds proteinuria at visit ${diagnoses.find(d => d.changedFromPrev && /proteinuria/i.test(d.text))?.visit} and reverts at the next` : ''}.`, citations: [dxFirst.citation, dxLast.citation] });
+  briefing.push({ id: 'b1', text: `${dxLast.text}. ${N} follow-ups on record, ${fmtDate(dates[visits[0]])} to ${fmtDate(dates[visits.at(-1)!])}.`, citations: [dxFirst.citation, dxLast.citation] });
   const h = T.hba1c; const hf = h.firstReading; const hl = h.latest;
   if (hf && hl && hf !== hl) briefing.push({ id: 'b2', text: `HbA1c ${hf.value!.toFixed(1)} → ${hl.value!.toFixed(1)}%${hf.visit > 1 ? ` (first written at visit ${hf.visit})` : ''}; ${h.inBand.in} of ${h.inBand.of} readings are below 7.0%.`, citations: [hf.citation!, hl.citation!] });
   const f0 = T.fbs.firstReading!; const f1 = T.fbs.latest!; const p0 = T.ppbs.firstReading!; const p1 = T.ppbs.latest!;

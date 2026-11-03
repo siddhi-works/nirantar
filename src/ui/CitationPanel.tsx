@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, BadgeCheck, CheckCircle2, ClipboardCheck, ExternalLink, FileSearch, X } from 'lucide-react';
 import { api } from '@/api';
 import { useApi } from '@/api/hooks';
@@ -6,6 +6,9 @@ import { fmtDate } from '@/domain/format';
 import { FIELD_LABEL } from '@/domain/slip';
 import { ROLE_LABEL } from '@/domain/forms';
 import { useUi, type SourceTarget } from './store';
+import { useSession } from '@/session';
+import { OBS_BY_CODE } from '@/domain/observations';
+import { CorrectForm } from './ValueForms';
 import { originalPdfUrl } from '@/domain/originals';
 import { Button, Skeleton, VerifyChip, docShort } from './primitives';
 import { SlipView, highlightOf } from './SlipView';
@@ -34,7 +37,9 @@ type AbsenceSource = Extract<SourceTarget, { kind: 'absence' }>;
 
 function CitationBody({ source }: { source: CitationSource }) {
   const { citation, patientId } = source;
-  const role = useUi(s => s.role);
+  const userRole = useSession(s => s.user?.role);
+  const canEdit = userRole === 'doctor' || userRole === 'nurse';
+  const [correcting, setCorrecting] = useState(false);
   const close = useUi(s => s.closeSource);
   const openSource = useUi(s => s.openSource);
   const toast = useUi(s => s.toast);
@@ -51,8 +56,22 @@ function CitationBody({ source }: { source: CitationSource }) {
 
   const verify = async () => {
     if (!fact) return;
-    const r = await api.verifyFacts(patientId, [fact.id], role);
-    toast(r.ok ? `Confirmed ${fact.display}` : r.error, r.ok ? 'ok' : 'error');
+    try {
+      await api.verifyFacts(patientId, [fact.id]);
+      toast(`Confirmed ${fact.display}`, 'ok');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not confirm this value.', 'error');
+    }
+  };
+
+  const src = fact?.citation.source ?? citation.source;
+  const hisCorrectable = !!fact && fact.source === 'his-import' && fact.kind === 'observation' && typeof fact.value === 'number' && !!OBS_BY_CODE[fact.code];
+  const saveCorrection = async (value: string, reason: string) => {
+    if (!fact) return;
+    if (src) await api.correctObservation(patientId, src.observationId, value, reason);
+    else await api.correctFact(patientId, fact.id, value, reason);
+    toast('Correction saved. The earlier value is kept.', 'ok');
+    setCorrecting(false);
   };
 
   const task = isClosure ? data?.recall.tasks.find(t => t.id === citation.closureRef!.taskId) : undefined;
@@ -60,7 +79,7 @@ function CitationBody({ source }: { source: CitationSource }) {
   const navCite = citation.id.startsWith('nav:');
 
   return (
-    <aside className="panel panel--cite" role="dialog" aria-label="Source document" aria-modal="false">
+    <div className="panel panel--cite" role="dialog" aria-label="Source document" aria-modal="false">
       <div className="panel__head">
         <div className="grow">
           <div className="eyebrow">Source</div>
@@ -89,6 +108,19 @@ function CitationBody({ source }: { source: CitationSource }) {
           </div>
         )}
 
+        {src && (
+          <div className="card card--tint" style={{ padding: 16 }}>
+            <div className="row" style={{ gap: 8 }}><FileSearch size={18} /><b>{src.kind === 'upload' ? 'Read from an uploaded document' : 'Entered by staff'}</b></div>
+            <dl className="kv" style={{ marginTop: 12 }}>
+              <dt>Value</dt><dd><b>{fact?.display ?? citation.quote}</b></dd>
+              {src.original !== undefined && <><dt>First recorded as</dt><dd>{src.original}</dd></>}
+              {src.correctionReason && <><dt>Reason</dt><dd>{src.correctionReason}</dd></>}
+              <dt>Status</dt><dd className="row-wrap"><VerifyChip state={src.status === 'corrected' ? 'corrected' : 'verified'} by={src.by} /><span className="muted" style={{ fontSize: 12 }}>{src.by} · {fmtDate(src.at)}</span></dd>
+              {src.documentId && <><dt>Document</dt><dd><a href={`/api/documents/${src.documentId}/file`} target="_blank" rel="noopener noreferrer">Open the uploaded file</a></dd></>}
+            </dl>
+          </div>
+        )}
+
         {doc && (
           <>
             <SlipView doc={doc} highlights={navCite ? [] : [highlightOf(citation, 'active')]} scrollToActive />
@@ -110,21 +142,25 @@ function CitationBody({ source }: { source: CitationSource }) {
                   {fact && <><dt>Extracted as</dt><dd><b>{fact.display}</b>{fact.unit === 'mg/dL' ? <span className="muted"> — printed “mg/dl”, canonical mg/dL</span> : null}</dd></>}
                   <dt>Method</dt><dd>Pattern parser on HIS text{fact ? ` · ${fact.extractor.name} ${fact.extractor.version} · ${fact.extractor.rule}` : ''}</dd>
                   <dt>Basis</dt><dd>Exact text match. No OCR confidence applies — the HIS supplied this as text.</dd>
+                  {fact?.detail?.originalValue !== undefined && <><dt>Corrected from</dt><dd>{String(fact.detail.originalValue)} <span className="muted">· {String(fact.detail.correctionReason ?? '')}</span></dd></>}
                   {fact && <><dt>Verification</dt><dd className="row-wrap"><VerifyChip state={fact.verification} by={fact.verifiedBy} />{fact.verifiedBy && <span className="muted" style={{ fontSize: 12 }}>{fact.verifiedBy} · {fmtDate(fact.verifiedAt)}</span>}</dd></>}
                   {alsoDoc && <><dt>Also in</dt><dd><button className="cite" onClick={() => openSource({ kind: 'citation', patientId, citation: { ...citation, id: `nav:${alsoDoc}`, docId: alsoDoc, alsoIn: [citation.docId] } })}>{docShort(alsoDoc)}</button> — identical text</dd></>}
                 </dl>
-                <p className="hint" style={{ marginTop: 12 }}>Corrections never overwrite the original. A corrected value would be saved as a new version with an audit entry.</p>
+                <p className="hint" style={{ marginTop: 12 }}>Corrections never overwrite the original. A correction is saved as a new version with who made it and why; the slip text above is not changed.</p>
               </>
             )}
           </>
         )}
+        {correcting && fact && (
+          <><hr className="hr" /><CorrectForm code={fact.code} current={String(fact.value ?? '')} onSave={saveCorrection} onCancel={() => setCorrecting(false)} /></>
+        )}
       </div>
       <div className="panel__foot">
-        {role === 'coordinator' && fact && fact.verification !== 'verified' && <span className="hint grow">Coordinators can’t verify values — a doctor or nurse can.</span>}
         {doc && <a className="btn btn--secondary btn--sm" href={originalPdfUrl(patientId, doc.visit)} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} />View original document</a>}
-        {fact && <Button size="sm" onClick={verify} disabled={fact.verification === 'verified'} icon={fact.verification === 'verified' ? <CheckCircle2 size={14} /> : <BadgeCheck size={14} />}>{fact.verification === 'verified' ? 'Value confirmed' : 'Confirm value'}</Button>}
+        {canEdit && fact && !correcting && (src || hisCorrectable) && <Button size="sm" variant="secondary" onClick={() => setCorrecting(true)}>Correct value</Button>}
+        {canEdit && fact && !src && <Button size="sm" onClick={verify} disabled={fact.verification === 'verified'} icon={fact.verification === 'verified' ? <CheckCircle2 size={14} /> : <BadgeCheck size={14} />}>{fact.verification === 'verified' ? 'Value confirmed' : 'Confirm value'}</Button>}
       </div>
-    </aside>
+    </div>
   );
 }
 
@@ -135,7 +171,7 @@ function AbsencePanel({ source }: { source: AbsenceSource }) {
   const { data } = useApi(() => api.getRecall(patientId), [patientId]);
   const docs = (data?.documents ?? []).filter(d => absence.searchedDocIds.includes(d.id));
   return (
-    <aside className="panel panel--cite" role="dialog" aria-label="Absence evidence">
+    <div className="panel panel--cite" role="dialog" aria-label="Absence evidence">
       <div className="panel__head">
         <div className="grow">
           <div className="eyebrow">Absence is a finding</div>
@@ -165,6 +201,6 @@ function AbsencePanel({ source }: { source: AbsenceSource }) {
         <p className="hint" style={{ marginTop: 14 }}>A missing test is shown as a care gap, never as blank space. This record may be incomplete — the test may exist elsewhere. Capturing it clears the gap.</p>
       </div>
       <div className="panel__foot"><span className="muted grow" style={{ fontSize: 12 }}>Rule evaluation is deterministic — {ROLE_LABEL.doctor} view</span><Button size="sm" variant="secondary" onClick={close}>Close</Button></div>
-    </aside>
+    </div>
   );
 }

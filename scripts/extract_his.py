@@ -1,8 +1,8 @@
-"""Faithful dump of ABHA_Two_Patient_HIS.xlsx -> src/server-mock/data/his.json
+"""Faithful dump of ABHA_Two_Patient_HIS.xlsx -> server/core/data/his.json
 
 Nothing is interpreted here. Dates become ISO strings, every row keeps its sheet/row
 locator so the UI can cite "P1_Prescription!A6:F6". Parsing into facts happens in
-src/server-mock/parse.ts so the extraction logic is testable TypeScript.
+server/core/parse.ts so the extraction logic is testable TypeScript.
 """
 import json
 import datetime as dt
@@ -12,7 +12,7 @@ import openpyxl
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "data" / "source" / "ABHA_Two_Patient_HIS.xlsx"
-OUT = ROOT / "src" / "server-mock" / "data" / "his.json"
+OUT = ROOT / "server" / "core" / "data" / "his.json"
 
 
 def iso(v):

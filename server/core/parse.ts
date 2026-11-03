@@ -4,11 +4,11 @@
  * it was read from, so the UI can highlight the source region.
  */
 import raw from './data/his.json';
-import { fieldText, headerLine } from '@/domain/slip';
+import { fieldText, headerLine } from '../../src/domain/slip';
 import type {
   Citation, DiagnosisEntry, Extractor, Fact, Finding, FindingState, ISODate, MedicationMention,
   Patient, PlanCategory, SlipField, SourceDocument,
-} from '@/domain/types';
+} from '../../src/domain/types';
 
 /* ───────────── helpers ───────────── */
 

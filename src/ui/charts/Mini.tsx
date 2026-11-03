@@ -70,7 +70,7 @@ export function MedLane({ meds, domain, onSelect, visitDates, hoverVisit }: {
   const dateOf = (v: number) => visitDates.find(d => d.visit === v)!.date;
   return (
     <div ref={ref} style={{ height: H }}>
-      <svg width={W} height={H} role="img" aria-label={`Medicine lane: ${meds.map(m => `${m.drug} ${m.strength ?? ''}`).join(', ')}, no dose change on any slip.`}>
+      <svg width={W} height={H} role="group" aria-label={`Medicine lane: ${meds.map(m => `${m.drug} ${m.strength ?? ''}`).join(', ')}, no dose change on any slip.`}>
         {visitDates.map(v => <line key={v.visit} x1={x(v.date)} x2={x(v.date)} y1={0} y2={H} stroke={hoverVisit === v.visit ? 'var(--cerulean)' : '#E3E6E3'} strokeDasharray={hoverVisit === v.visit ? undefined : '2 4'} />)}
         {meds.map((m, i) => {
           const cy = i * rowH + 40;
