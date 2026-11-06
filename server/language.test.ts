@@ -1,3 +1,4 @@
+import { GLOBAL } from './auth/ratelimit';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { setup, P1_ABHA, type Harness } from './test-utils';
 import { CONTRACT, SarvamSpeaker, SarvamTranslator } from './language/sarvam';
@@ -49,7 +50,7 @@ describe('translation', () => {
     const lim = await setup({ translator });
     const p = await lim.patient(P1_ABHA);
     let last = 0;
-    for (let i = 0; i < 62; i++) last = (await lim.post('/translate', { texts: [`line ${i}`], target: 'hi-IN' }, p)).status;
+    for (let i = 0; i < 205; i++) last = (await lim.post('/translate', { texts: [`line ${i}`], target: 'hi-IN' }, p)).status;
     expect(last).toBe(429);
   });
 });
@@ -57,12 +58,14 @@ describe('translation', () => {
 describe('limits for everyone together', () => {
   it('stop all visitors combined from spending the translation credits', async () => {
     const lone = await setup({ translator });
-    let last = 0;
-    for (let i = 0; i < 105; i++) {
-      const who = i % 2 ? await lone.nurse(`${String(i).padStart(12, '0').replace(/\d/g, d => 'abcdefabcd'[Number(d)])}`) : await lone.doctor(`${String(i).padStart(12, '0').replace(/\d/g, d => 'abcdefabcd'[Number(d)])}`);
-      last = (await lone.post('/translate', { texts: [`unique line ${i}`], target: 'hi-IN' }, who)).status;
+    const people = [await lone.doctor('abababababab'), await lone.nurse('bcbcbcbcbcbc'), await lone.doctor('cdcdcdcdcdcd'), await lone.nurse('dededededede')];
+    let last = 0; let served = 0;
+    for (let i = 0; i < GLOBAL.translate + 10 && last !== 429; i++) {
+      last = (await lone.post('/translate', { texts: [`unique line ${i}`], target: 'hi-IN' }, people[i % people.length])).status;
+      if (last === 200) served++;
     }
     expect(last).toBe(429);
+    expect(served).toBe(GLOBAL.translate);
   }, 120_000);
 });
 

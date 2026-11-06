@@ -38,4 +38,12 @@ export async function createDb(opts: { url?: string; dataDir?: string; migrate?:
   return db as unknown as Db;
 }
 
+/**
+ * On a hosted database the tables are made once (npm run db:setup). A later release can add a table, so each cold start
+ * asks the database which migrations it has already run, which is one cheap query, and runs only the missing ones.
+ */
+export async function applyPendingMigrations(db: Db): Promise<void> {
+  await migrateNeon(db as unknown as Parameters<typeof migrateNeon>[0], { migrationsFolder: findMigrations() });
+}
+
 export { schema };

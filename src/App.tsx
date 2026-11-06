@@ -6,6 +6,10 @@ import { DoctorHome, NurseHome } from '@/pages/Homes';
 import PatientHome from '@/pages/PatientHome';
 import { Toasts } from '@/pages/Chrome';
 
+import { ErrorBoundary } from './pages/ErrorBoundary';
+import RegisteredPatientHome from './pages/RegisteredPatientHome';
+import { isRegisteredId } from './pages/RegisterPatient';
+
 export default function App() {
   const user = useSession(s => s.user);
   const ready = useSession(s => s.ready);
@@ -13,7 +17,7 @@ export default function App() {
   if (!ready) return <Splash />;
   return (
     <>
-      {!user ? <Login /> : user.role === 'doctor' ? <DoctorHome /> : user.role === 'nurse' ? <NurseHome /> : <PatientHome />}
+      <ErrorBoundary>{!user ? <Login /> : user.role === 'doctor' ? <DoctorHome /> : user.role === 'nurse' ? <NurseHome /> : isRegisteredId(user.patientId) ? <RegisteredPatientHome /> : <PatientHome />}</ErrorBoundary>
       <SourcePanel />
       <Toasts />
       <footer className="simbanner"><span className="simbanner__long">ABDM sandbox simulator · not connected to the live ABDM network</span><span className="simbanner__short">ABDM simulator · not live</span></footer>

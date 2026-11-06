@@ -37,14 +37,15 @@ describe('database setup', () => {
 });
 
 describe('housekeeping and hardening', () => {
-  it('creates the starting request once, even when two sign-ins reach a new workspace at the same moment', async () => {
+  it('creates the space once, and nothing in it, even when three sign-ins reach a new workspace at the same moment', async () => {
     const { ensureWorkspace } = await import('./seed');
-    const { simConsents } = await import('./db/schema');
+    const { simConsents, workspaces } = await import('./db/schema');
     const { eq } = await import('drizzle-orm');
     const db = await createDb();
     await seed(db);
     await Promise.all([ensureWorkspace(db, 'abababababab'), ensureWorkspace(db, 'abababababab'), ensureWorkspace(db, 'abababababab')]);
-    expect((await db.select().from(simConsents).where(eq(simConsents.workspace, 'abababababab'))).length).toBe(1);
+    expect((await db.select().from(workspaces).where(eq(workspaces.id, 'abababababab'))).length).toBe(1);
+    expect((await db.select().from(simConsents).where(eq(simConsents.workspace, 'abababababab'))).length).toBe(0); // no request is made up
   });
 
   it('logs the kind of failure without the data inside it', async () => {
@@ -72,4 +73,15 @@ describe('housekeeping and hardening', () => {
       expect((await app.request('/api/maintenance', { headers: { authorization: 'Bearer s3cret' } })).status).toBe(200);
     } finally { delete process.env.CRON_SECRET; }
   });
+});
+
+describe('who is signed in', () => {
+  it('tells the screens which hospital a staff member works at, so they can show the right home screen', async () => {
+    const { setup } = await import('./test-utils');
+    const h = await setup();
+    const me = async (cookie: string) => (await (await h.get('/auth/me', cookie)).json()).user;
+    expect((await me(await h.doctor())).hfrId).toBe('IN2900011882');
+    expect((await me(await h.doctorB())).hfrId).toBe('IN0900022991');
+    expect((await me(await h.patient('91-2612-3348-1056'))).hfrId).toBeUndefined();
+  }, 60_000);
 });

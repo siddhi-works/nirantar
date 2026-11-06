@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { readFileSync } from 'node:fs';
 import { setup, P1_ABHA, P2_ABHA, type Harness } from './test-utils';
-import { accessLog, simCareContexts, simConsents, simTransfers } from './db/schema';
+import { abdmTransfers, accessLog, hipConsentCopies, receivedRecords, simCareContexts, simConsents } from './db/schema';
 
 const P1_PDF = new Uint8Array(readFileSync(new URL('./assets/originals/patient-1-followups.pdf', import.meta.url)));
 const REQ = { purpose: 'Treatment', validityDays: 30 };
@@ -97,7 +97,7 @@ describe('the encrypted transfer', () => {
   });
 
   it('never holds the record in readable form at the gateway', async () => {
-    const rows = await h.db.select().from(simTransfers);
+    const rows = await h.db.select().from(abdmTransfers);
     expect(rows.length).toBeGreaterThan(0);
     const dump = JSON.stringify(rows);
     for (const secret of ['Rajesh', 'HbA1c', 'Metformin', 'Gorakhpur', 'Observation']) expect(dump).not.toContain(secret);
@@ -142,13 +142,16 @@ describe('the encrypted transfer', () => {
 });
 
 describe('withdrawing, denying and expiry', () => {
-  it('stops further transfers when the patient withdraws, but the copy already received stays readable and says so', async () => {
+  it('stops further transfers when the patient withdraws, and the receiving hospital must erase the copy it holds', async () => {
     const b = await h.doctorB(); const p = await h.patient(P1_ABHA);
     const consent = (await mineB(b)).find(x => x.status === 'granted')!;
+    const rid = consent.receivedId!;
+    expect((await h.get(`/exchange/received/${rid}`, b)).status).toBe(200); // it holds a copy until the patient withdraws
     expect((await h.post(`/exchange/consents/${consent.id}/revoke`, {}, p)).status).toBe(200);
     expect((await h.post(`/exchange/consents/${consent.id}/fetch`, {}, b)).status).toBe(404);
-    const rid = consent.receivedId!;
-    expect((await (await h.get(`/exchange/received/${rid}`, b)).json()).consentStatus).toBe('revoked');
+    expect((await h.get(`/exchange/received/${rid}`, b)).status).toBe(404); // erased
+    expect((await h.db.select().from(receivedRecords).where(eq(receivedRecords.id, rid))).length).toBe(0);
+    expect((await h.db.select().from(hipConsentCopies).where(eq(hipConsentCopies.consentId, consent.id)))[0].status).toBe('REVOKED');
     expect((await h.post(`/exchange/consents/${consent.id}/revoke`, {}, p)).status).toBe(409);
   });
 

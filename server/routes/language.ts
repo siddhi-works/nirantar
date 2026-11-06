@@ -8,8 +8,8 @@ import { GLOBAL, countRequests, record } from '../auth/ratelimit';
 import { SUPPORTED } from '../language/provider';
 import type { AppCtx, Env } from '../ctx';
 
-const TRANSLATE_LIMIT = 60; // requests per person per 10 minutes
-const SPEECH_LIMIT = 30;
+const TRANSLATE_LIMIT = 200; // requests per person per 10 minutes
+const SPEECH_LIMIT = 120; // a read-aloud is several short requests
 const keyOf = (target: string, text: string) => createHash('sha256').update(`${target}\n${text}`).digest('hex');
 
 export function languageRoutes({ db, requireUser, translator, speaker }: AppCtx) {
@@ -28,7 +28,7 @@ export function languageRoutes({ db, requireUser, translator, speaker }: AppCtx)
     const missing = unique.filter(t => !byKey.has(keyOf(target, t)));
     if (missing.length) {
       if (!translator) return c.json({ error: 'not_configured' }, 501);
-      const limitKey = `tr:${c.get('user').id}`;
+      const limitKey = `tr:${c.get('user').id}:${c.get('user').workspace}`;
       if (await countRequests(db, limitKey) >= TRANSLATE_LIMIT || await countRequests(db, 'tr:*') >= GLOBAL.translate) return c.json({ error: 'too_many_attempts' }, 429);
       await record(db, limitKey, true);
       await record(db, 'tr:*', true);
@@ -47,7 +47,7 @@ export function languageRoutes({ db, requireUser, translator, speaker }: AppCtx)
     const body = z.object({ text: z.string().trim().min(1).max(800), lang: z.enum(['hi-IN', 'en-IN']) }).safeParse(await c.req.json().catch(() => null));
     if (!body.success) return c.json({ error: 'bad_request' }, 400);
     if (!speaker) return c.json({ error: 'not_configured' }, 501);
-    const limitKey = `sp:${c.get('user').id}`;
+    const limitKey = `sp:${c.get('user').id}:${c.get('user').workspace}`;
     if (await countRequests(db, limitKey) >= SPEECH_LIMIT || await countRequests(db, 'sp:*') >= GLOBAL.speech) return c.json({ error: 'too_many_attempts' }, 429);
     await record(db, limitKey, true);
     await record(db, 'sp:*', true);

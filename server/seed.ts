@@ -1,7 +1,7 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { Db } from './db/client';
 import { eq, inArray, like, lt } from 'drizzle-orm';
-import { consents, documents, exchangeKeys, factVerifications, fileBlobs, observations, observationVersions, patients, receivedRecords, recordAnnotations, simCareContexts, simConsents, simTransfers, users, workspaces } from './db/schema';
+import { abdmTransfers, consentEvents, consents, documents, editRequests, educationLog, exchangeKeys, gatewayMessages, hipConsentCopies, opdSettings, opdVisits, patientAdvice, sessions, factVerifications, fileBlobs, observations, observationVersions, patients, receivedRecords, recordAnnotations, registeredPatients, registrationDrafts, simCareContexts, simConsents, simTransfers, users, workspaces } from './db/schema';
 import { parseRecord } from './core/parse';
 
 export const FACILITY_HFR = 'IN2900011882';
@@ -50,11 +50,7 @@ export async function ensureWorkspace(db: Db, ws: string): Promise<void> {
   // so the starting request from the other hospital is added exactly once.
   const created = await db.insert(workspaces).values({ id: ws }).onConflictDoNothing().returning({ id: workspaces.id });
   if (!created.length) { await db.update(workspaces).set({ seenAt: new Date() }).where(eq(workspaces.id, ws)); return; }
-  const first = parseRecord().patients[0];
-  await db.insert(simConsents).values({
-    id: randomUUID(), patientId: scope(first.id, ws), abha: digits(first.abhaId), hiuHfr: OTHER_HFR, hiuUserId: DEV_DOCTOR_B.id,
-    hiuName: 'Civil Hospital, Lucknow', workspace: ws, purpose: 'Treatment', validityDays: 30, status: 'requested',
-  });
+  // Nothing else is created for a new space: a request from another hospital exists only when a hospital really makes one.
 }
 
 /** Remove every workspace nobody has touched for two weeks, with its uploads. Returns how many were cleared. */
@@ -71,16 +67,28 @@ export async function removeWorkspace(db: Db, ws: string): Promise<void> {
   if (docs.length) await db.delete(fileBlobs).where(inArray(fileBlobs.id, docs.map(d => d.id)));
   const consentRows = await db.select({ id: simConsents.id }).from(simConsents).where(eq(simConsents.workspace, ws));
   if (consentRows.length) {
-    const transfers = await db.select({ id: simTransfers.id }).from(simTransfers).where(inArray(simTransfers.consentId, consentRows.map(c => c.id)));
-    if (transfers.length) {
-      await db.delete(exchangeKeys).where(inArray(exchangeKeys.id, transfers.map(t => t.id)));
-      await db.delete(simTransfers).where(inArray(simTransfers.id, transfers.map(t => t.id)));
-    }
+    const ids = consentRows.map(c => c.id);
+    const transfers = [
+      ...(await db.select({ id: simTransfers.id }).from(simTransfers).where(inArray(simTransfers.consentId, ids))),
+      ...(await db.select({ id: abdmTransfers.id }).from(abdmTransfers).where(inArray(abdmTransfers.consentId, ids))),
+    ];
+    if (transfers.length) await db.delete(exchangeKeys).where(inArray(exchangeKeys.id, transfers.map(t => t.id)));
+    await db.delete(simTransfers).where(inArray(simTransfers.consentId, ids));
+    await db.delete(abdmTransfers).where(inArray(abdmTransfers.consentId, ids));
   }
   const received = await db.select({ id: receivedRecords.id }).from(receivedRecords).where(eq(receivedRecords.workspace, ws));
   if (received.length) await db.delete(recordAnnotations).where(inArray(recordAnnotations.receivedId, received.map(r => r.id)));
   await db.delete(receivedRecords).where(eq(receivedRecords.workspace, ws));
   await db.delete(simConsents).where(eq(simConsents.workspace, ws));
+  const regs = await db.select({ id: registeredPatients.id }).from(registeredPatients).where(eq(registeredPatients.workspace, ws));
+  await db.delete(sessions).where(eq(sessions.workspace, ws));
+  if (regs.length) {
+    const made = (await db.select({ id: users.id }).from(users).where(inArray(users.patientId, regs.map(r => r.id)))).map(u => u.id);
+    if (made.length) { await db.delete(sessions).where(inArray(sessions.userId, made)); await db.delete(users).where(inArray(users.id, made)); } // the sign-ins made for them
+  }
+  for (const t of [opdVisits, opdSettings, editRequests, educationLog, patientAdvice, gatewayMessages, hipConsentCopies, consentEvents]) await db.delete(t).where(eq(t.workspace, ws));
+  await db.delete(registeredPatients).where(eq(registeredPatients.workspace, ws));
+  await db.delete(registrationDrafts).where(eq(registrationDrafts.workspace, ws));
   for (const t of [documents, observations, observationVersions, factVerifications, simCareContexts]) await db.delete(t).where(like(t.patientId, mine));
   await db.delete(workspaces).where(eq(workspaces.id, ws));
 }

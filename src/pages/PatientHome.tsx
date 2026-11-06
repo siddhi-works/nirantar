@@ -12,12 +12,19 @@ import { ReviewCard } from './Review';
 import { ConsentInbox } from './Exchange';
 import { UploadDialog } from './UploadDocument';
 import { useState } from 'react';
+import { useSection } from '@/ui/nav';
+import { NextVisitCard, PatientNotifications } from './SampleCards';
 import { Tx, useT } from '@/i18n';
-import { LangToggle, ReadAloud } from '@/i18n/controls';
+import { ReadAloud } from '@/i18n/controls';
+import { AskRecord } from './AskRecord';
+import { ScanShareCard } from './Opd';
+import { NetworkLog } from './NavMenu';
+import { CorrectionCard, CounsellingCard } from './Care';
 
 export default function PatientHome() {
   const user = useSession(s => s.user)!;
   const t = useT();
+  const sec = useSection();
   const [uploading, setUploading] = useState(false);
   const { data: r, error, refetch } = useApi(() => api.getRecall(user.patientId!), [user.patientId]);
   if (error && !r) return <LoadError message={error} onRetry={refetch} />;
@@ -34,9 +41,11 @@ export default function PatientHome() {
     <div className="screen screen--patient">
       <TopBar />
       <main className="wrap wrap--narrow">
-        <div className="hello"><div><div className="eyebrow">{t('Your health record · ABHA {abha}', { abha: r.patient.abhaId })}</div><h1>{t('Namaste, {name}', { name: r.patient.name.replace(/^Mrs?\. /, '') })}</h1></div><div className="row" style={{ gap: 8 }}><LangToggle /><ReadAloud sentences={speech} /></div></div>
+        <div className="hello"><div><div className="eyebrow">{t('Your health record · ABHA {abha}', { abha: r.patient.abhaId })}</div><h1>{t('Namaste, {name}', { name: r.patient.name.replace(/^Mrs?\. /, '') })}</h1></div><div className="row" style={{ gap: 8 }}><ReadAloud sentences={speech} /></div></div>
 
-        <section className="card pcard2" data-accent="sage">
+        {sec === 'home' && <div className="cols cols--even">
+<div className="stack" style={{ gap: 18 }}>
+<section className="card pcard2" data-accent="sage">
           <div className="eyebrow">{t('Your sugar control')}</div>
           <div className="pcard2__big"><span className="num">{hb.latest!.value!.toFixed(1)}<small>%</small></span><SparkLine values={hb.points.map(p => p.value)} w={150} h={46} /></div>
           <p>{sugar}</p>
@@ -45,15 +54,10 @@ export default function PatientHome() {
           </div>
           <small className="muted">{t('As of your visit on {date}', { date: fmtDate(r.patient.lastVisitDate) })}</small>
         </section>
+<NextVisitCard /><PatientNotifications /></div>
 
-        <section className="card" data-accent="cerulean">
-          <div className="card__head"><h2 className="card__title"><Pill size={16} />{t('Your medicines')}</h2></div>
-          <ul className="pmeds">
-            {r.medications.map(m => <li key={m.drug}><b>{m.drug}</b><span>{m.strength} · <Tx text={m.regimen} /></span></li>)}
-          </ul>
-        </section>
 
-        <section className="card" data-accent="terracotta">
+          <div className="stack" style={{ gap: 18 }}><section className="card" data-accent="terracotta">
           <div className="card__head"><h2 className="card__title">{t('Your checks')}</h2></div>
           <ChecksList plain sections={buildChecks(r)} />
         </section>
@@ -69,11 +73,25 @@ export default function PatientHome() {
           </section>
         ); })()}
 
-        <ConsentInbox />
-        <ReviewCard patientId={r.patient.id} onUpload={() => setUploading(true)} />
-        {uploading && <UploadDialog patientId={r.patient.id} patient onClose={() => setUploading(false)} />}
+</div>
+        </div>}
 
-        <section className="card" data-accent="ink">
+        {sec === 'care' && <div className="cols cols--even">
+          <div className="stack" style={{ gap: 18 }}><AskRecord patientId={user.patientId!} />
+<section className="card" data-accent="cerulean">
+          <div className="card__head"><h2 className="card__title"><Pill size={16} />{t('Your medicines')}</h2></div>
+          <ul className="pmeds">
+            {r.medications.map(m => <li key={m.drug}><b>{m.drug}</b><span>{m.strength} · <Tx text={m.regimen} /></span></li>)}
+          </ul>
+        </section>
+
+</div>
+          <CounsellingCard patientId={user.patientId!} role="patient" />
+        </div>}
+
+        {sec === 'reports' && <div className="cols cols--even">
+          <div className="stack" style={{ gap: 18 }}><ReviewCard patientId={r.patient.id} onUpload={() => setUploading(true)} />
+<section className="card" data-accent="ink">
           <div className="card__head"><h2 className="card__title">{t('Your visits')}</h2></div>
           <ul className="pvisits">
             {[...r.changes].reverse().map(c => { const rx = r.documents.find(d => d.kind === 'prescription' && d.visit === c.visit)!; return (
@@ -81,7 +99,16 @@ export default function PatientHome() {
             ); })}
           </ul>
         </section>
-        <p className="hint" style={{ textAlign: 'center', marginBottom: 28 }}>{t('Prototype with synthetic data. This is not medical advice — talk to your doctor.')}</p>
+</div>
+        <CorrectionCard patientId={user.patientId!} role="patient" choices={(['hba1c', 'fbs', 'ppbs'] as const).flatMap(c => T[c].points.filter(p => p.value !== null).map(p => `${T[c].label} ${p.value!.toFixed(T[c].decimals)}${T[c].unit === '%' ? '%' : ' ' + T[c].unit} on ${fmtDate(p.date)}`))} />
+
+        </div>}
+
+        {sec === 'sharing' && <div className="cols cols--even">
+          <div className="stack" style={{ gap: 18 }}><ScanShareCard /><ConsentInbox /></div>
+          <NetworkLog />
+        </div>}
+        {uploading && <UploadDialog patientId={r.patient.id} patient onClose={() => setUploading(false)} />}
       </main>
     </div>
   );

@@ -43,6 +43,27 @@
       "when": 1793970196460,
       "tag": "0005_good_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793980150771,
+      "tag": "0006_registered_patients",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793981740404,
+      "tag": "0007_opd_care_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793982017652,
+      "tag": "0008_abdm_consent_artefact",
+      "breakpoints": true
     }
   ]
 }

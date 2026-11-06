@@ -1,17 +1,19 @@
 import { useState, type ReactNode } from 'react';
-import { AlertCircle, AlertTriangle, Bell, CalendarClock, CheckCircle2, FlaskConical, Loader2, LogOut, MessageSquare, Search, UserSearch } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, FileText, HeartPulse, Home, LayoutDashboard, Loader2, LogOut, Network, QrCode, Search, Share2, UserPlus, UserSearch, Users, type LucideIcon } from 'lucide-react';
 import { api } from '@/api';
 import { digits, formatAbha, useSession } from '@/session';
 import { useUi } from '@/ui/store';
-import { KIND_LABEL, SAMPLE_PATIENTS, type Slot } from '@/data/demo';
 import { cx } from '@/ui/primitives';
+import { LangToggle } from '@/i18n/controls';
+import { FACILITY, OTHER_FACILITY } from '@/data/demo';
+import { useT } from '@/i18n';
+import { navFor, useNav, useSection } from '@/ui/nav';
 
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
-      <rect width="32" height="32" rx="7" fill="#F7F5F0" />
-      <path d="M5 19c4-9 7-9 11 0s7 9 11 0" fill="none" stroke="#1A2F33" strokeWidth="2.4" strokeLinecap="round" />
-      <circle cx="16" cy="19" r="2.5" fill="#C26D5C" />
+      <rect width="32" height="32" rx="8" fill="#1B5FAA" />
+      <path d="M5 18h5l3-7 4 13 3-9 2 3h5" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -41,21 +43,57 @@ export const FeedbackLink = () => FEEDBACK_URL
   ? <a className="btn btn--ghost btn--sm" href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer">Give feedback</a>
   : null;
 
+const ICONS: Record<string, LucideIcon> = {
+  layout: LayoutDashboard, users: Users, userplus: UserPlus, network: Network, qr: QrCode,
+  home: Home, heart: HeartPulse, file: FileText, share: Share2,
+};
+
+/** The frame around every signed-in screen: a sidebar on laptops, a tab bar on phones, and a slim bar with the page context. */
 export function TopBar({ right }: { right?: ReactNode }) {
-  const { user, logout } = useSession();
+  const { user, logout, closePatient, openId } = useSession();
+  const t = useT();
+  const section = useSection();
+  const setSection = useNav(s => s.setSection);
+  const items = navFor(user?.role);
+  const here = items.find(i => i.k === section);
+  const go = (k: string) => { setSection(k); if (openId) closePatient(); window.scrollTo({ top: 0 }); };
+  const active = openId && user?.role !== 'patient' ? '' : section;
+  const initial = user?.name.replace(/^(Mrs?|Dr|Nurse)\.?\s*/, '')[0];
   return (
-    <header className="bar">
-      <div className="bar__brand"><Logo size={30} /><span>Nirantar</span></div>
-      <div className="grow" />
-      {right}
-      <FeedbackLink />
-      <FreshStart />
-      <div className="bar__user">
-        <span className="avatar avatar--sm">{user?.name.replace(/^(Mrs?|Dr|Nurse)\.?\s*/, '')[0]}</span>
-        <span><b>{user?.name}</b><small>{user?.line}</small></span>
-      </div>
-      <button className="btn btn--secondary btn--sm" onClick={logout}><LogOut size={14} />Log out</button>
-    </header>
+    <>
+      <aside className="side" aria-label={t('Main menu')}>
+        <div className="side__brand"><Logo size={32} /><span>Nirantar</span></div>
+        <div className="side__org">
+          <small>{user?.role === 'patient' ? t('Your health record') : t('Signed in at')}</small>
+          <b translate="no">{user?.role === 'patient' ? (user?.line ?? '') : (user?.hfrId === OTHER_FACILITY.hfr ? OTHER_FACILITY.name : FACILITY.name)}</b>
+        </div>
+        <nav className="side__nav">
+          {items.map(i => { const Icon = ICONS[i.icon]; return (
+            <button key={i.k} type="button" className={cx('side__item', active === i.k && 'is-on')} aria-current={active === i.k ? 'page' : undefined} onClick={() => go(i.k)}><Icon size={18} />{t(i.label)}</button>
+          ); })}
+        </nav>
+        <div className="side__foot">
+          <LangToggle />
+          <FeedbackLink />
+          <FreshStart />
+          <div className="side__user"><span className="avatar avatar--sm">{initial}</span><span><b translate="no">{user?.name}</b><small translate="no">{user?.line}</small></span></div>
+          <button className="side__out" onClick={logout}><LogOut size={15} />{t('Log out')}</button>
+        </div>
+      </aside>
+      <header className="bar">
+        <div className="bar__brand"><Logo size={26} /><span>Nirantar</span></div>
+        <div className="bar__ctx"><h1 className="bar__title">{openId && user?.role !== 'patient' ? t('Patient record') : here ? t(here.label) : ''}</h1><small>{today()}</small></div>
+        <div className="grow" />
+        {right}
+        <span className="bar__mob"><LangToggle /></span>
+        <button className="bar__me" onClick={logout} aria-label={t('Log out')} title={t('Log out')}><span className="avatar avatar--sm">{initial}</span></button>
+      </header>
+      <nav className="tabbar" aria-label={t('Main menu')}>
+        {items.map(i => { const Icon = ICONS[i.icon]; return (
+          <button key={i.k} type="button" className={cx(active === i.k && 'is-on')} aria-current={active === i.k ? 'page' : undefined} onClick={() => go(i.k)}><Icon size={20} /><span>{t(i.label)}</span></button>
+        ); })}
+      </nav>
+    </>
   );
 }
 
@@ -103,51 +141,12 @@ export function LookupPanel({ title }: { title: string }) {
           {state === 'fetching' ? <><Loader2 size={15} className="spin" />Fetching record…</> : <><Search size={15} />Open record</>}
         </button>
       </form>
-      <div className="samples" aria-label="Sample patients for testing">
-        <span className="eyebrow">Sample patients for testing</span>
-        {SAMPLE_PATIENTS.map(p => (
-          <div key={p.abha} className="samples__row">
-            <span><b>{p.name}</b> <code>{p.abha}</code></span>
-            <button type="button" className="btn btn--secondary btn--sm" onClick={() => { setAbha(p.abha); setName(''); setState('idle'); setFound(null); }}>Use this number</button>
-          </div>
-        ))}
-      </div>
       {found && <div className="lookup__ok"><CheckCircle2 size={16} />Record found — {found}. Opening…</div>}
       {state === 'notfound' && <div className="lookup__err"><AlertTriangle size={16} />No record found for this ABHA number. Check the 14 digits and try again.</div>}
     </section>
   );
 }
 
-const NOTE_ICON = { lab: FlaskConical, msg: MessageSquare, alert: AlertTriangle, cal: CalendarClock } as const;
-export function Notifications({ items }: { items: { icon: keyof typeof NOTE_ICON; title: string; sub: string; time: string }[] }) {
-  return (
-    <section className="card" data-accent="terracotta">
-      <div className="card__head"><h2 className="card__title"><Bell size={16} />Notifications</h2><span className="chip chip--outline" title="Example content, not real patients or alerts">Sample · {items.length} new</span></div>
-      <ul className="notes">
-        {items.map(n => { const I = NOTE_ICON[n.icon]; return (
-          <li key={n.title} className={cx(n.icon === 'alert' && 'is-alert')}><span className="notes__i"><I size={16} /></span><span className="grow"><b>{n.title}</b><small>{n.sub}</small></span><time>{n.time}</time></li>
-        ); })}
-      </ul>
-    </section>
-  );
-}
-
-export function Schedule({ title, rows }: { title: string; rows: Slot[] }) {
-  return (
-    <section className="card" data-accent="cerulean">
-      <div className="card__head"><h2 className="card__title"><CalendarClock size={16} />{title}</h2><span className="chip chip--outline" title="Example schedule, not real appointments">Sample · {today()}</span></div>
-      <ul className="sched">
-        {rows.map(r => (
-          <li key={r.time + r.title}>
-            <time className="num">{r.time}</time>
-            <span className="grow"><b>{r.title}</b><small>{r.sub}</small></span>
-            <span className={cx('chip', `kind kind--${r.kind}`)}>{KIND_LABEL[r.kind]}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
 
 
 /** What a screen shows when its data could not be loaded: the reason, a retry, and a way back. */

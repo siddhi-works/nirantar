@@ -71,7 +71,7 @@ export function MedLane({ meds, domain, onSelect, visitDates, hoverVisit }: {
   return (
     <div ref={ref} style={{ height: H }}>
       <svg width={W} height={H} role="group" aria-label={`Medicine lane: ${meds.map(m => `${m.drug} ${m.strength ?? ''}`).join(', ')}, no dose change on any slip.`}>
-        {visitDates.map(v => <line key={v.visit} x1={x(v.date)} x2={x(v.date)} y1={0} y2={H} stroke={hoverVisit === v.visit ? 'var(--cerulean)' : '#E3E6E3'} strokeDasharray={hoverVisit === v.visit ? undefined : '2 4'} />)}
+        {visitDates.map(v => <line key={v.visit} x1={x(v.date)} x2={x(v.date)} y1={0} y2={H} stroke={hoverVisit === v.visit ? 'var(--cerulean)' : '#D6DFE8'} strokeDasharray={hoverVisit === v.visit ? undefined : '2 4'} />)}
         {meds.map((m, i) => {
           const cy = i * rowH + 40;
           const first = x(dateOf(m.mentions[0].visit)); const last = x(dateOf(m.mentions.at(-1)!.visit));
@@ -79,7 +79,7 @@ export function MedLane({ meds, domain, onSelect, visitDates, hoverVisit }: {
             <g key={m.drug}>
               <text x={ML} y={cy - 22} className="medlane__name">{m.drug}</text>
               <text x={ML + m.drug.length * 7.6 + 10} y={cy - 22} className="medlane__sub">{[m.strength, m.regimen].filter(Boolean).join(' · ')}</text>
-              <rect x={first - 8} y={cy - 8} width={Math.max(16, last - first + 16)} height={16} rx={8} fill="var(--tint)" stroke="#D3DAD8" />
+              <rect x={first - 8} y={cy - 8} width={Math.max(16, last - first + 16)} height={16} rx={8} fill="var(--tint)" stroke="#C3CFDB" />
               <text x={W - MR + 8} y={cy + 4} className="medlane__flag">{m.changed ? 'dose changed' : 'no dose change'}</text>
               {m.mentions.map(me => {
                 const cx = x(dateOf(me.visit));
@@ -116,8 +116,8 @@ export function CohortChart({ lines, unit, decimals = 0 }: { lines: { id: string
   return (
     <div ref={ref} style={{ height: H }}>
       <svg width={W} height={H} role="img" aria-label={`${lines.map(l => `${l.name}: ${l.values.filter(v => v !== null).join(', ')} ${unit}`).join('. ')}`}>
-        {ticks.map(t => <g key={t}><line x1={ml} x2={W - mr} y1={y(t)} y2={y(t)} stroke="#ECEEEC" /><text x={ml - 8} y={y(t) + 4} textAnchor="end" className="tchart__tick">{t.toFixed(decimals)}</text></g>)}
-        {Array.from({ length: n }, (_, i) => <g key={i}><line x1={x(i)} x2={x(i)} y1={mt - 6} y2={H - mb} stroke="#E3E6E3" strokeDasharray="2 4" /><text x={x(i)} y={H - 12} textAnchor="middle" className="tchart__vlabel">Visit {i + 1}</text></g>)}
+        {ticks.map(t => <g key={t}><line x1={ml} x2={W - mr} y1={y(t)} y2={y(t)} stroke="#E4EAF0" /><text x={ml - 8} y={y(t) + 4} textAnchor="end" className="tchart__tick">{t.toFixed(decimals)}</text></g>)}
+        {Array.from({ length: n }, (_, i) => <g key={i}><line x1={x(i)} x2={x(i)} y1={mt - 6} y2={H - mb} stroke="#D6DFE8" strokeDasharray="2 4" /><text x={x(i)} y={H - 12} textAnchor="middle" className="tchart__vlabel">Visit {i + 1}</text></g>)}
         {lines.map(l => {
           const pts = l.values.map((v, i) => (v === null ? null : { v, i })).filter(Boolean) as { v: number; i: number }[];
           return (

@@ -151,7 +151,7 @@
 /* ───── upload dialog ───── */
 .modal-wrap { position: fixed; inset: 0; z-index: 70; background: rgba(26, 47, 51, .4); display: grid; place-items: center; padding: 20px; animation: fade .15s; }
 .modal__form { display: flex; flex-direction: column; gap: 16px; }
-.modal { width: min(500px, 100%); padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow-lg); }
+.modal { width: min(500px, 100%); padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow-lg); max-height: calc(100vh - 40px); overflow-y: auto; }
 .drop { border: 1.5px dashed #8DB6C1; border-radius: 8px; background: var(--cerulean-tint); padding: 24px 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; cursor: pointer; color: var(--cerulean-ink); }
 .drop:hover, .drop.is-drag { background: #D6E8EE; border-color: var(--cerulean); }
 .drop small { color: var(--muted); }
@@ -175,3 +175,72 @@
 .samples { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .samples__row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 13.5px; }
 .samples__row code { user-select: all; margin-left: 6px; }
+
+/* a received record, opened as a full page over the home screen */
+.xpage { position: fixed; inset: 0; z-index: 60; background: var(--bg, #f6f4ee); overflow-y: auto; }
+.xpage .wrap { padding-top: 18px; }
+.rmeta { display: flex; flex-direction: column; gap: 8px; text-align: right; font-size: 13.5px; }
+.rmeta .eyebrow { display: inline-flex; gap: 4px; align-items: center; }
+.rmeta b { display: block; }
+.rtiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 16px 0; }
+.rtile { background: var(--surface, #fff); border: 1px solid var(--line, #e3e8ec); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; }
+.rtile b { font-size: 26px; line-height: 1.1; }
+.rtile b small { font-size: 12px; font-weight: 500; color: var(--muted); }
+@media (max-width: 720px) { .rmeta { text-align: left; } }
+
+/* ask about your record */
+.ask__body { padding: 4px 18px 16px; display: flex; flex-direction: column; gap: 12px; }
+.ask__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ask__chips .chip { cursor: pointer; font: inherit; font-size: 13px; }
+.ask__log { display: flex; flex-direction: column; gap: 12px; max-height: 360px; overflow-y: auto; }
+.ask__q { align-self: flex-end; background: var(--ink, #1c2a33); color: #fff; padding: 8px 12px; border-radius: 12px 12px 2px 12px; max-width: 88%; font-size: 14px; }
+.ask__a { align-self: flex-start; background: var(--sage-tint, #eaf1ec); padding: 10px 12px; border-radius: 12px 12px 12px 2px; max-width: 94%; display: flex; flex-direction: column; gap: 8px; font-size: 14.5px; }
+.ask__a p { margin: 0; }
+.ask__src { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ask__a .btn { align-self: flex-start; }
+
+/* registering a patient */
+.rsteps { list-style: none; display: flex; gap: 8px; padding: 0; margin: 0; font-size: 13px; }
+.rsteps li { display: flex; align-items: center; gap: 6px; color: var(--muted); flex: 1; padding: 6px 8px; border-bottom: 2px solid var(--line, #e3e8ec); }
+.rsteps li span { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--line, #e3e8ec); font-size: 11px; font-weight: 600; }
+.rsteps li.is-on { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+.rsteps li.is-on span { background: var(--ink); color: #fff; }
+.rsteps li.is-done span { background: var(--sage); color: #fff; }
+.rsandbox { background: #fff7e0; border: 1px dashed #c9a227; border-radius: 8px; padding: 8px 12px; font-size: 13.5px; }
+.rsandbox code { font-size: 18px; font-weight: 700; letter-spacing: 2px; margin-left: 4px; }
+.rconsent { border: 1px solid var(--line, #e3e8ec); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+.rconsent legend { font-size: 13px; font-weight: 600; padding: 0 6px; }
+.rconsent .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+.rconsent em { color: var(--muted); font-style: normal; font-size: 12px; margin-left: 4px; }
+.rids { border: 1px solid var(--line, #e3e8ec); border-radius: 8px; padding: 6px 10px; }
+.rids summary { cursor: pointer; font-size: 13.5px; font-weight: 500; }
+
+/* OPD queue */
+.opd__list li.is-now { background: var(--sage-tint, #eaf1ec); border-radius: 8px; padding-left: 8px; }
+.opd__token { font-size: 18px; font-weight: 700; min-width: 40px; }
+.qrbox { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border: 1px dashed var(--line, #c9d3d9); border-radius: 10px; padding: 14px; }
+.qrbox small { display: block; color: var(--muted); }
+.token { display: flex; align-items: baseline; gap: 12px; }
+.token b { font-size: 42px; line-height: 1; }
+
+/* ≡ menu */
+.drawer-wrap { position: fixed; inset: 0; z-index: 65; background: rgba(26, 47, 51, .4); animation: fade .15s; }
+.drawer { position: absolute; left: 0; top: 0; bottom: 0; width: min(420px, 92vw); background: var(--bg, #f6f4ee); padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; box-shadow: var(--shadow-lg); }
+.netlog code { font-size: 12px; }
+
+/* summary and advice */
+.summary { font-size: 15.5px; line-height: 1.55; margin: 0 0 10px; }
+.advice-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.advice-list small { display: block; color: var(--muted); font-size: 12px; }
+.advice-more { margin: 4px 0 0 4px; font-size: 13.5px; }
+.advice-more summary { cursor: pointer; color: var(--ink); }
+.advice-more ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* fixes from the full-page test */
+.phead__cx { flex-wrap: wrap; }
+.phead__cx .chip { white-space: normal; max-width: 100%; }
+.xform .xfull { grid-column: 1 / -1; }
+.rconsent.xfull { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
+.rconsent.xfull .hint { flex-basis: 100%; }
+.rtiles { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+@media (max-width: 720px) { .src, .ask__chips .chip, .linklike, .btn--sm { min-height: 32px; } }

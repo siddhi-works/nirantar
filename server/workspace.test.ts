@@ -46,6 +46,7 @@ describe('two testers using the same site', () => {
   });
 
   it('each gets their own waiting consent request, and answering one does not answer the other', async () => {
+    for (const ws of [A, B]) await h.post('/exchange/requests', { abha: P1_ABHA, purpose: 'Treatment', validityDays: 30 }, await h.doctorB(ws));
     const pa = await h.patient(P1_ABHA, A); const pb = await h.patient(P1_ABHA, B);
     const listA = (await (await h.get('/exchange/consents', pa)).json()).items;
     const listB = (await (await h.get('/exchange/consents', pb)).json()).items;
@@ -117,7 +118,7 @@ describe('starting fresh', () => {
     // the same session now shows the original record, no uploads, and a new waiting request
     expect(hb(await recall(a))).toBe(5.9);
     expect((await (await h.get('/patients/P1/documents', a)).json()).items).toHaveLength(0);
-    expect((await (await h.get('/exchange/requests', await h.doctorB(newWs))).json()).items[0].status).toBe('requested');
+    expect((await (await h.get('/exchange/requests', await h.doctorB(newWs))).json()).items).toEqual([]); // a new space has no requests until a hospital makes one
     // nobody else was touched, and the old space still has its work
     expect(hb(await recall(other))).toBe(otherBefore);
     expect(hb(await recall(await h.doctor(C)))).toBe(8.8);
@@ -137,6 +138,7 @@ describe('clearing idle spaces', () => {
     const old = newWorkspaceId(); const recent = newWorkspaceId();
     const oldDoc = await (await h.upload('P2', P1_PDF, 'old.pdf', 'Prescription', await h.doctor(old))).json();
     await h.doctor(recent);
+    for (const ws of [old, recent]) await h.post('/exchange/requests', { abha: P1_ABHA, purpose: 'Treatment', validityDays: 30 }, await h.doctorB(ws));
     await h.db.update(workspaces).set({ seenAt: new Date(Date.now() - 15 * 86_400_000) }).where(eq(workspaces.id, old));
 
     expect(await clearIdleWorkspaces(h.db)).toBeGreaterThanOrEqual(1);

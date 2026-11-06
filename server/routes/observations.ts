@@ -9,6 +9,7 @@ import { currentValue, originalText } from '../core/observations';
 import { NOT_FOUND, type AppCtx, type Env } from '../ctx';
 import { todayIST } from '../time';
 import { patientIdParam } from './patients';
+import { REG_ID } from '../registry';
 import { scope } from '../seed';
 
 const today = () => todayIST();
@@ -140,7 +141,7 @@ export function observationRoutes(ctx: AppCtx) {
   r.post('/patients/:id/facts/:factId/correct', requireUser('doctor', 'nurse'), async c => {
     const pid = patientIdParam.safeParse(c.req.param('id'));
     const body = z.object({ value: z.union([z.string().max(60), z.number()]), reason: reasonSchema }).safeParse(await c.req.json().catch(() => null));
-    if (!pid.success || !(await open(c, pid.data, 'correct-value'))) return c.json(NOT_FOUND, 404);
+    if (!pid.success || REG_ID.test(pid.data) || !(await open(c, pid.data, 'correct-value'))) return c.json(NOT_FOUND, 404); // slip values only
     if (!body.success) return c.json(bad('Give the corrected value and a short reason.'), 400);
     const fact = buildRecall(pid.data, await opsFor(pid.data, c.get('user').workspace)).facts.find(f => f.id === c.req.param('factId') && f.source === 'his-import' && f.kind === 'observation');
     if (!fact || typeof fact.value !== 'number' || !OBS_BY_CODE[fact.code]) return c.json(bad('This value cannot be corrected here.'), 400);

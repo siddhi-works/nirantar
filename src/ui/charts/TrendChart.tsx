@@ -61,7 +61,7 @@ export function TrendChart({ series, domain, height = 190, hoverVisit, onHover, 
         {/* grid */}
         {ticks.map(tk => (
           <g key={tk}>
-            <line x1={ML} x2={W - MR} y1={y(tk)} y2={y(tk)} stroke="#ECEEEC" />
+            <line x1={ML} x2={W - MR} y1={y(tk)} y2={y(tk)} stroke="#E4EAF0" />
             <text x={ML - 10} y={y(tk) + 4} textAnchor="end" className="tchart__tick">{tk % 1 ? tk.toFixed(1) : tk}</text>
           </g>
         ))}
@@ -78,7 +78,7 @@ export function TrendChart({ series, domain, height = 190, hoverVisit, onHover, 
         {/* visit rails */}
         {visitDates.map(v => (
           <g key={v.visit}>
-            <line x1={x(v.date)} x2={x(v.date)} y1={mt - 6} y2={mt + plotH} stroke={hoverVisit === v.visit ? 'var(--cerulean)' : '#E3E6E3'} strokeDasharray={hoverVisit === v.visit ? undefined : '2 4'} />
+            <line x1={x(v.date)} x2={x(v.date)} y1={mt - 6} y2={mt + plotH} stroke={hoverVisit === v.visit ? 'var(--cerulean)' : '#D6DFE8'} strokeDasharray={hoverVisit === v.visit ? undefined : '2 4'} />
             {showAxis && (
               <>
                 <text x={x(v.date)} y={height - 20} textAnchor="middle" className="tchart__vlabel">V{v.visit}</text>

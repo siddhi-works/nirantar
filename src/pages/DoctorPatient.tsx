@@ -11,11 +11,13 @@ import { TrendChart } from '@/ui/charts/TrendChart';
 import { MedLane } from '@/ui/charts/Mini';
 import { domainOf } from '@/ui/charts/scale';
 import { useUi } from '@/ui/store';
+import { Tabs } from '@/ui/Tabs';
 import { LoadError, TopBar } from './Chrome';
 import { UploadDialog } from './UploadDocument';
 import { ChecksList, buildChecks } from './Checks';
 import { RecordDialog } from './RecordResult';
 import { ReviewCard } from './Review';
+import { CorrectionCard, CounsellingCard, SummaryBlock } from './Care';
 import { complications, monthsLabel, onRecordSince, vitalsNote } from '@/domain/profile';
 
 const dedupe = <T extends { id: string }>(xs: T[]) => xs.filter((x, i) => xs.findIndex(y => y.id === x.id) === i);
@@ -23,6 +25,7 @@ const dedupe = <T extends { id: string }>(xs: T[]) => xs.filter((x, i) => xs.fin
 export default function DoctorPatient() {
   const close = useSession(s => s.closePatient);
   const openId = useSession(s => s.openId)!;
+  const [tab, setTab] = useState<'overview' | 'trends' | 'checks' | 'care' | 'history'>('overview');
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const openSource = useUi(s => s.openSource);
@@ -62,10 +65,17 @@ export default function DoctorPatient() {
           </div>
         </Card>
 
-        {/* summary */}
+        <Tabs label="Parts of the record" value={tab} onChange={setTab} tabs={[
+          { k: 'overview', label: 'Summary' }, { k: 'trends', label: 'Trends and medicines' }, { k: 'checks', label: 'Checks and reports' },
+          { k: 'care', label: 'Care and corrections' }, { k: 'history', label: 'Visit history' },
+        ]} />
+        {tab === 'overview' && <>
+        <SummaryBlock patientId={pid} />
+
+        {/* evidence */}
         <div className="cols cols--even">
           <Card accent="cerulean">
-            <CardHead title="Summary" />
+            <CardHead title="Evidence behind the summary" />
             <ol className="sum">
               {r.briefing.map(b => (
                 <li key={b.id}><span>{b.text}</span><span className="sum__c">{dedupe(b.citations).slice(0, 3).map(c => <SourceChip key={c.id} citation={c} patientId={pid} />)}{b.absence && <AbsenceChip absence={b.absence} patientId={pid} title="Not on record" />}</span></li>
@@ -86,6 +96,8 @@ export default function DoctorPatient() {
           </Card>
         </div>
 
+</>}
+        {tab === 'trends' && <>
         {/* trends */}
         <Card accent="ink">
           <CardHead title="Trends" icon={<Droplets size={16} />} right={<span className="hint">Click a point to see where it came from. <span aria-hidden="true">◆</span> marks a value recorded or uploaded here.</span>} />
@@ -99,7 +111,7 @@ export default function DoctorPatient() {
           </div>
         </Card>
 
-        <div className="cols cols--even">
+<div className="cols cols--even">
           {/* medicines */}
           <Card accent="sage">
             <CardHead title="Medicines" icon={<Pill size={16} />} />
@@ -113,14 +125,21 @@ export default function DoctorPatient() {
             </div>
           </Card>
 
+</div></>}
+        {tab === 'checks' && <div className="cols cols--even">
           {/* checks */}
           <Card accent="terracotta">
             <CardHead title="Checks — on record and not on record" icon={<ClipboardList size={16} />} right={<Button size="sm" variant="secondary" onClick={() => setRecording(true)} icon={<ClipboardPlus size={14} />}>Record a result</Button>} />
             <ChecksList sections={buildChecks(r)} />
           </Card>
-        </div>
         <ReviewCard patientId={pid} onUpload={() => setUploading(true)} />
+</div>}
+        {tab === 'care' && <div className="cols cols--even">
+        <CounsellingCard patientId={pid} role="doctor" />
+        <CorrectionCard patientId={pid} role="doctor" />
 
+</div>}
+        {tab === 'history' && <>
         {/* visit history */}
         <Card accent="cerulean">
           <CardHead title="Visit history" icon={<FileText size={16} />} />
@@ -133,6 +152,7 @@ export default function DoctorPatient() {
             </table>
           </div>
         </Card>
+</>}
         <p className="hint" style={{ textAlign: 'center', margin: '8px 0 24px' }}>Prototype with synthetic data. Generated summaries are drafts for the clinician to review.</p>
       </main>
       {uploading && <UploadDialog patientId={pid} onClose={() => setUploading(false)} />}

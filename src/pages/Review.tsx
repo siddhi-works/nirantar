@@ -72,6 +72,24 @@ function PushButton({ patientId, d }: { patientId: string; d: DocumentItem }) {
   return <Button size="sm" variant="secondary" onClick={async () => { try { await api.pushDocument(patientId, d.id); toast('Pushed to ABDM'); } catch (e) { toast(e instanceof Error ? e.message : 'Could not push.', 'error'); } }}>Push to ABDM</Button>;
 }
 
+function FailedRead({ d }: { d: DocumentItem }) {
+  const t = useT();
+  const toast = useUi(s => s.toast);
+  const [busy, setBusy] = useState(false);
+  const retry = async () => {
+    setBusy(true);
+    try { const r = await api.retryDocument(d.id); if (r.status === 'failed') toast(r.error ?? 'It still could not be read.', 'error'); }
+    catch (e) { toast(e instanceof Error ? e.message : 'Could not try again.', 'error'); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+      <p className="error-text" role="alert" style={{ margin: 0 }}>{d.error}</p>
+      <Button size="sm" variant="secondary" disabled={busy} onClick={retry}>{busy ? t('Reading…') : t('Try reading again')}</Button>
+    </div>
+  );
+}
+
 const METHOD: Record<string, string> = { 'text-layer': 'Read from the PDF text', ocr: 'Read by the document reader' };
 
 function DocBlock({ patientId, d, values, role }: { patientId: string; d: DocumentItem; values: ObservationItem[]; role: 'doctor' | 'nurse' | 'patient' }) {
@@ -82,12 +100,12 @@ function DocBlock({ patientId, d, values, role }: { patientId: string; d: Docume
     <div className="rvdoc">
       <div className="rvdoc__head">
         <span className="chk__i"><FileText size={18} /></span>
-        <span className="grow"><b>{d.fileName}</b><small>{d.docType} · uploaded by {d.by}{d.origin === 'patient' ? ' (patient)' : ''}, {fmtDate(d.at)}{d.method ? ` · ${METHOD[d.method]}` : ''}{d.pages ? ` · ${d.pages} page${d.pages === 1 ? '' : 's'}` : ''}</small></span>
+        <span className="grow"><b translate="no">{d.fileName}</b><small>{d.docType} · uploaded by {d.by}{d.origin === 'patient' ? ' (patient)' : ''}, {fmtDate(d.at)}{d.method ? ` · ${METHOD[d.method]}` : ''}{d.pages ? ` · ${d.pages} page${d.pages === 1 ? '' : 's'}` : ''}</small></span>
         <span className="chip chip--outline" title="Kept in our private store until it is pushed to ABDM">{d.syncStatus === 'pushed' ? 'Pushed to ABDM' : 'Pending, not yet shared'}</span>
         {role !== 'patient' && d.status === 'done' && d.syncStatus === 'pending' && <PushButton patientId={patientId} d={d} />}
         <a className="btn btn--secondary btn--sm" href={`/api/documents/${d.id}/file`} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} />Open file</a>
       </div>
-      {d.status === 'failed' && <p className="error-text" role="alert">{d.error}</p>}
+      {d.status === 'failed' && <FailedRead d={d} />}
       {d.status === 'done' && values.length === 0 && <p className="hint">No values were found in this document.</p>}
       {waiting.length > 0 && (
         <>

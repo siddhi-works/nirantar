@@ -47,3 +47,30 @@ describe('translate', () => {
     expect(translate('Something not in the dictionary', 'hi')).toBe('Something not in the dictionary');
   });
 });
+
+describe('page translation helpers', () => {
+  it('turns a date or a visit label into Hindi without asking the server', async () => {
+    const { _test } = await import('./page');
+    expect(_test.lookup('3 Dec 2027')).toBe('3 दिसंबर 2027');
+    expect(_test.lookup('Friday, 6 November 2026')).toBe('शुक्रवार, 6 नवंबर 2026');
+    expect(_test.lookup('Visit 5, 3 Dec 2027')).toBe('विज़िट 5, 3 दिसंबर 2027');
+    expect(_test.lookup('Open source: Rx slip · V1')).toBe('स्रोत खोलें: दवा पर्ची · V1');
+    expect(_test.lookup('Something only the server can translate')).toBeUndefined();
+  });
+
+  it('leaves ids, numbers and single names alone', async () => {
+    const { _test } = await import('./page');
+    for (const s of ['91-2612-3348-1056', 'IN2900011882', '142', 'Metformin', 'mg/dL']) expect(_test.wordy(s), s).toBe(false);
+    expect(_test.wordy('Use this number')).toBe(true);
+  });
+
+  it('cuts a long text into short pieces so the first can start playing early', async () => {
+    const { speechChunks } = await import('./index');
+    const text = 'Your sugar is under control. Keep taking Metformin after food. Walk for thirty minutes every day, and avoid sugar and sweets as far as you can; come back in three months for a review.';
+    const parts = speechChunks(text);
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts[0].length).toBeLessThan(120);
+    expect(parts.join(' ').replace(/\s+/g, ' ')).toBe(text);
+    expect(speechChunks('Short.')).toEqual(['Short.']);
+  });
+});

@@ -6,9 +6,10 @@ import { buildRecall } from '../core/engine';
 import { documentView } from '../core/views';
 import { originalPdf } from '../storage';
 import { NOT_FOUND, digits, patientOf, type AppCtx, type Env } from '../ctx';
+import { REG_ID, registeredByAbha } from '../registry';
 import { scope } from '../seed';
 
-export const patientIdParam = z.string().regex(/^P\d{1,6}$/);
+export const patientIdParam = z.string().regex(/^(P\d{1,6}|R[0-9a-f]{8})$/);
 const docIdParam = z.string().regex(/^[A-Za-z0-9-]{1,40}$/);
 
 export function patientRoutes(ctx: AppCtx) {
@@ -21,6 +22,10 @@ export function patientRoutes(ctx: AppCtx) {
     if (abha.length !== 14) return c.json(NOT_FOUND, 404);
     const [p] = await db.select().from(patients).where(eq(patients.abha, abha)).limit(1);
     const user = c.get('user');
+    if (!p && user.hfrId) { // a patient this hospital registered in the tester's own space
+      const mine = await registeredByAbha(db, user.workspace, user.hfrId, abha);
+      if (mine && (await open(c, mine.id, 'lookup'))) return c.json({ patientId: mine.id, name: mine.name, registered: true });
+    }
     if (!p) {
       await db.insert(accessLog).values({ userId: user.id, role: user.role, action: 'lookup', outcome: 'denied' });
       return c.json(NOT_FOUND, 404); // same reply as "found but no consent"
@@ -31,14 +36,15 @@ export function patientRoutes(ctx: AppCtx) {
 
   r.get('/patients/:id/recall', requireUser(), async c => {
     const id = patientIdParam.safeParse(c.req.param('id'));
-    if (!id.success || !(await open(c, id.data, 'view-record'))) return c.json(NOT_FOUND, 404);
+    // A registered patient has no follow-up slips, so there is no slip-based record to build: the screens use /profile and /observations.
+    if (!id.success || REG_ID.test(id.data) || !(await open(c, id.data, 'view-record'))) return c.json(NOT_FOUND, 404);
     return c.json(buildRecall(id.data, await opsFor(id.data, c.get('user').workspace)));
   });
 
   r.get('/patients/:id/documents/:docId', requireUser(), async c => {
     const id = patientIdParam.safeParse(c.req.param('id'));
     const doc = docIdParam.safeParse(c.req.param('docId'));
-    if (!id.success || !doc.success || !(await open(c, id.data, 'view-document'))) return c.json(NOT_FOUND, 404);
+    if (!id.success || !doc.success || REG_ID.test(id.data) || !(await open(c, id.data, 'view-document'))) return c.json(NOT_FOUND, 404);
     return c.json(documentView(id.data, doc.data, await opsFor(id.data, c.get('user').workspace)));
   });
 
@@ -53,7 +59,7 @@ export function patientRoutes(ctx: AppCtx) {
   r.post('/patients/:id/verify', requireUser('doctor', 'nurse'), async c => {
     const id = patientIdParam.safeParse(c.req.param('id'));
     const body = z.object({ factIds: z.array(z.string().max(80)).min(1).max(50) }).safeParse(await c.req.json().catch(() => null));
-    if (!id.success || !(await open(c, id.data, 'verify-values'))) return c.json(NOT_FOUND, 404);
+    if (!id.success || REG_ID.test(id.data) || !(await open(c, id.data, 'verify-values'))) return c.json(NOT_FOUND, 404);
     if (!body.success) return c.json({ error: 'bad_request' }, 400);
     const known = new Set(buildRecall(id.data, await opsFor(id.data, c.get('user').workspace)).facts.map(f => f.id));
     const ids = [...new Set(body.data.factIds)].filter(f => known.has(f));

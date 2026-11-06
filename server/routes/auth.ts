@@ -6,6 +6,7 @@ import { GENERIC_AUTH_ERROR, type AppRole, type SessionUser } from '../../src/do
 import { accessLog, sessions, users } from '../db/schema';
 import { COOKIE, WS_COOKIE, hashToken, newToken } from '../auth/session';
 import { WORKSPACE_RE, ensureWorkspace, newWorkspaceId } from '../seed';
+import { registeredByWorkspaceAbha } from '../registry';
 import { LIMITS, countFailures, countRequests, record } from '../auth/ratelimit';
 import { digits, type AppCtx, type Env } from '../ctx';
 
@@ -44,9 +45,18 @@ export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
 
     // When a code is required it is checked even if the account does not exist, so both failures look and cost the same.
     const codeOk = !config.requireOtp || await auth.verifyOtp(creds, otp ?? '');
-    const [user] = creds.role === 'patient'
+    let [user] = creds.role === 'patient'
       ? await db.select().from(users).where(and(eq(users.role, 'patient'), eq(users.abha, digits(creds.abha ?? '')))).limit(1)
       : await db.select().from(users).where(and(eq(users.role, creds.role), eq(users.hprId, creds.hprId ?? ''), eq(users.hfrId, creds.hfrId ?? ''))).limit(1);
+    // A patient the hospital registered in this browser's own space signs in with their ABHA number like any other.
+    const keptWs = getCookie(c, WS_COOKIE);
+    if (!user && creds.role === 'patient' && keptWs && WORKSPACE_RE.test(keptWs)) {
+      const reg = await registeredByWorkspaceAbha(db, keptWs, digits(creds.abha ?? ''));
+      if (reg) {
+        await db.insert(users).values({ id: `u-pat-${reg.id}`, role: 'patient', name: reg.name, line: `ABHA ${digits(reg.abha).replace(/(\d{2})(\d{4})(\d{4})(\d{4})/, '$1-$2-$3-$4')}`, patientId: reg.id }).onConflictDoNothing();
+        [user] = await db.select().from(users).where(eq(users.id, `u-pat-${reg.id}`)).limit(1);
+      }
+    }
 
     if (!codeOk || !user) {
       await record(db, idKey, false);
@@ -65,12 +75,12 @@ export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
     setCookie(c, COOKIE, token, { httpOnly: true, secure: config.secureCookies, sameSite: 'Lax', path: '/', maxAge: config.sessionHours * 3600 });
     setCookie(c, WS_COOKIE, ws, { httpOnly: true, secure: config.secureCookies, sameSite: 'Lax', path: '/', maxAge: 90 * 86400 }); // after the session cookie, which stays first
     await db.insert(accessLog).values({ userId: user.id, role: user.role, action: 'sign-in', outcome: 'allowed' });
-    return c.json({ user: { role: user.role as AppRole, name: user.name, line: user.line, patientId: user.patientId ?? undefined } satisfies SessionUser });
+    return c.json({ user: { role: user.role as AppRole, name: user.name, line: user.line, patientId: user.patientId ?? undefined, hfrId: user.hfrId ?? undefined } satisfies SessionUser });
   });
 
   r.get('/auth/me', requireUser(), c => {
     const u = c.get('user');
-    return c.json({ user: { role: u.role, name: u.name, line: u.line, patientId: u.patientId ?? undefined } satisfies SessionUser });
+    return c.json({ user: { role: u.role, name: u.name, line: u.line, patientId: u.patientId ?? undefined, hfrId: u.hfrId ?? undefined } satisfies SessionUser });
   });
 
   /** Move this browser to a new, empty sample space. Only this tester's own additions are left behind. */

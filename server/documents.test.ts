@@ -153,3 +153,23 @@ describe('a patient\'s own upload', () => {
     expect((await h.get('/patients/P2/documents', pat2)).status).toBe(200);
   });
 });
+
+describe('trying a failed read again', () => {
+  it('re-reads the stored file without a second upload, and only when the first read failed', async () => {
+    const { OcrUnavailable } = await import('./ocr/provider');
+    let calls = 0;
+    const flaky: OcrProvider = { name: 'flaky', recognise: async () => { if (calls++ === 0) throw new OcrUnavailable('The reading service answered 404.'); return ['FBS 142 mg/dl  HbA1c 7.1%']; } };
+    const f = await setup({ ocr: flaky });
+    const nurse = await f.nurse();
+    const first = await (await f.upload('P1', PNG, 'scan.png', TYPE, nurse)).json();
+    expect(first).toMatchObject({ status: 'failed', error: 'The reading service answered 404.' });
+
+    const again = await f.post(`/documents/${first.id}/retry`, {}, nurse);
+    expect(again.status).toBe(200);
+    expect(await again.json()).toMatchObject({ id: first.id, status: 'done', method: 'ocr' });
+
+    // a document that was read fine cannot be "retried", and a stranger's retry finds nothing
+    expect((await f.post(`/documents/${first.id}/retry`, {}, nurse)).status).toBe(409);
+    expect((await f.post(`/documents/${first.id}/retry`, {}, await f.nurse('abababababab'))).status).toBe(404);
+  }, 60_000);
+});

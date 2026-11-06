@@ -12,10 +12,10 @@ export const TEST_WS = 'aaaaaaaaaaaa';
 export const P1_ABHA = '91-2612-3348-1056';
 export const P2_ABHA = '14-7004-8821-5590';
 
-export async function setup(opts: { ocr?: OcrProvider; translator?: Translator; speaker?: Speaker } = {}) {
+export async function setup(opts: { ocr?: OcrProvider; translator?: Translator; speaker?: Speaker; chat?: import('./assistant/provider').ChatProvider } = {}) {
   const db: Db = await createDb();
   await seed(db);
-  const app = createApp({ db, config: loadConfig({ DEV_OTP: OTP }), auth: new DevAuthProvider(OTP), ocr: opts.ocr, translator: opts.translator, speaker: opts.speaker });
+  const app = createApp({ db, config: loadConfig({ DEV_OTP: OTP }), auth: new DevAuthProvider(OTP), ocr: opts.ocr, translator: opts.translator, speaker: opts.speaker, chat: opts.chat });
   const req = (method: string, path: string, body?: unknown, cookie?: string, extra: Record<string, string> = {}) =>
     app.request(`/api${path}`, { method, headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...extra }, body: body !== undefined ? JSON.stringify(body) : undefined });
   const get = (path: string, cookie?: string) => req('GET', path, undefined, cookie);

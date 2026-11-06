@@ -49,15 +49,20 @@ function observation(f: Fact, patientRef: string, i: number): Fhir | null {
   };
 }
 
-export function buildBundle(recall: Recall, hip: { hfr: string; name: string }, at = new Date()): FhirBundle {
+/** What the patient allowed: only these kinds of record, and only values dated inside the range. Everything else is left out. */
+export interface Scope { hiTypes: readonly string[]; from?: string | null; to?: string | null }
+
+export function buildBundle(recall: Recall, hip: { hfr: string; name: string }, at = new Date(), scope?: Scope): FhirBundle {
   const entries: Fhir[] = [];
   const p = recall.patient;
   const org: Fhir = { resourceType: 'Organization', id: 'org', identifier: [{ system: 'urn:abdm:hfr', value: hip.hfr }], name: hip.name };
   const patient: Fhir = { resourceType: 'Patient', id: 'pat', identifier: [{ system: 'urn:abdm:abha', value: p.abhaId }], name: [{ text: p.name }], gender: p.sex === 'F' ? 'female' : 'male' };
-  const obs = recall.facts.map((f, i) => observation(f, 'Patient/pat', i)).filter((o): o is Fhir => o !== null);
-  const dx = recall.diagnoses.at(-1);
+  const inRange = (d: unknown) => !scope || ((!scope.from || String(d) >= scope.from.slice(0, 10)) && (!scope.to || String(d) <= scope.to.slice(0, 10)));
+  const allow = (type: string) => !scope || scope.hiTypes.includes(type);
+  const obs = allow('DiagnosticReport') ? recall.facts.map((f, i) => observation(f, 'Patient/pat', i)).filter((o): o is Fhir => o !== null && inRange(o.effectiveDateTime)) : [];
+  const dx = allow('OPConsultation') ? recall.diagnoses.at(-1) : undefined;
   const conditions: Fhir[] = dx ? [{ resourceType: 'Condition', id: 'cond-0', clinicalStatus: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/condition-clinical', code: 'active' }] }, code: { text: dx.text }, subject: { reference: 'Patient/pat' }, recordedDate: dx.date }] : [];
-  const meds: Fhir[] = recall.medications.map((m, i) => ({ resourceType: 'MedicationStatement', id: `med-${i}`, status: 'active', medicationCodeableConcept: { text: `${m.drug}${m.strength ? ' ' + m.strength : ''}` }, subject: { reference: 'Patient/pat' }, dosage: [{ text: `${m.regimen} (${m.route})` }] }));
+  const meds: Fhir[] = (allow('Prescription') ? recall.medications : []).map((m, i) => ({ resourceType: 'MedicationStatement', id: `med-${i}`, status: 'active', medicationCodeableConcept: { text: `${m.drug}${m.strength ? ' ' + m.strength : ''}` }, subject: { reference: 'Patient/pat' }, dosage: [{ text: `${m.regimen} (${m.route})` }] }));
   const composition: Fhir = {
     resourceType: 'Composition', id: 'comp', status: 'final', type: { text: 'Diabetes record summary' }, subject: { reference: 'Patient/pat' },
     date: at.toISOString(), author: [{ reference: 'Organization/org' }], title: 'Diabetes record summary',
@@ -69,4 +74,31 @@ export function buildBundle(recall: Recall, hip: { hfr: string; name: string }, 
   };
   entries.push(composition, patient, org, ...conditions, ...meds, ...obs);
   return { resourceType: 'Bundle', type: 'document', id: randomUUID(), timestamp: at.toISOString(), entry: entries.map(r => ({ fullUrl: `urn:uuid:${randomUUID()}`, resource: r })) };
+}
+
+/** A bundle for a patient who has no follow-up slips: identity plus the values a person has recorded or confirmed. */
+export function buildRegisteredBundle(
+  p: { name: string; sex: string; abha: string },
+  rows: { code: string; valueNum: number | null; valueText: string | null; obsDate: string; status: string }[],
+  hip: { hfr: string; name: string }, at = new Date(), scope?: Scope,
+): FhirBundle {
+  const allowed = !scope || scope.hiTypes.includes('DiagnosticReport');
+  const inRange = (d: string) => !scope || ((!scope.from || d >= scope.from.slice(0, 10)) && (!scope.to || d <= scope.to.slice(0, 10)));
+  const org: Fhir = { resourceType: 'Organization', id: 'org', identifier: [{ system: 'urn:abdm:hfr', value: hip.hfr }], name: hip.name };
+  const patient: Fhir = { resourceType: 'Patient', id: 'pat', identifier: [{ system: 'urn:abdm:abha', value: p.abha.replace(/(\d{2})(\d{4})(\d{4})(\d{4})/, '$1-$2-$3-$4') }], name: [{ text: p.name }], gender: p.sex === 'F' ? 'female' : p.sex === 'M' ? 'male' : 'other' };
+  const obs: Fhir[] = (allowed ? rows.filter(r => (r.status === 'verified' || r.status === 'corrected') && inRange(r.obsDate)) : []).map((r, i) => {
+    const def = OBS_BY_CODE[r.code]; const loinc = LOINC[r.code];
+    return {
+      resourceType: 'Observation', id: `obs-${i}`, status: 'final',
+      category: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/observation-category', code: CATEGORY[def?.group ?? ''] ?? 'laboratory' }] }],
+      code: { ...(loinc ? { coding: [{ system: 'http://loinc.org', code: loinc.code, display: loinc.display }] } : {}), text: def?.label ?? r.code },
+      subject: { reference: 'Patient/pat' }, effectiveDateTime: r.obsDate,
+      ...(r.valueNum !== null ? { valueQuantity: { value: r.valueNum, unit: def?.unit ?? '', system: 'http://unitsofmeasure.org' } } : { valueString: r.valueText ?? '' }),
+    } as Fhir;
+  });
+  const composition: Fhir = {
+    resourceType: 'Composition', id: 'comp', status: 'final', type: { text: 'Diabetes record summary' }, subject: { reference: 'Patient/pat' }, date: at.toISOString(), author: [{ reference: 'Organization/org' }], title: 'Diabetes record summary',
+    section: [{ title: 'Results and examinations', entry: obs.map(o => ({ reference: `Observation/${o.id}` })) }],
+  };
+  return { resourceType: 'Bundle', type: 'document', id: randomUUID(), timestamp: at.toISOString(), entry: [composition, patient, org, ...obs].map(r => ({ fullUrl: `urn:uuid:${randomUUID()}`, resource: r })) };
 }

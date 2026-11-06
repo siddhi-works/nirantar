@@ -2,7 +2,7 @@
  * The only door between the screens and the server. Every call goes to /api over HTTPS with the
  * session cookie; the browser holds no record data of its own and enforces no access rules.
  */
-import type { DocumentView, LookupResult, ObservationItem, OtpCredentials, SessionUser } from '@/domain/api';
+import type { DocumentView, LookupResult, ObservationItem, OtpCredentials, Counselling, DirectoryEntry, EditRequest, NetworkMessage, OpdMine, OpdQueue, RecordAnswer, RecordSummary, RegisteredPatient, RegistrationDraft, RegistrationInput, SandboxIdentity, SessionUser } from '@/domain/api';
 import type { DocumentItem } from '@/domain/documents';
 import type { ExchangeConsent, ReceivedRecordItem, ReceivedRecordView } from '@/domain/exchange';
 import type { Recall } from '@/domain/types';
@@ -121,15 +121,52 @@ export const api = {
   freshWorkspace: async () => { await http('/workspace/fresh', { method: 'POST', body: {} }); },
 
   /* ───────── record exchange between hospitals (ABDM simulator) ───────── */
-  requestConsent: async (abha: string, purpose: string, validityDays: number) => { await http('/exchange/requests', { method: 'POST', body: { abha, purpose, validityDays } }); notify(); },
+  requestConsent: async (abha: string, purpose: string, validityDays: number, extra: { hiTypes?: string[]; from?: string; keepDays?: number } = {}) => { await http('/exchange/requests', { method: 'POST', body: { abha, purpose, validityDays, ...extra } }); notify(); },
   listRequests: () => http<{ items: ExchangeConsent[] }>('/exchange/requests').then(r => r.items),
   listConsents: () => http<{ items: ExchangeConsent[] }>('/exchange/consents').then(r => r.items),
-  decideConsent: async (id: string, decision: 'grant' | 'deny') => { await http(`/exchange/consents/${id}/decision`, { method: 'POST', body: { decision } }); notify(); },
+  decideConsent: async (id: string, decision: 'grant' | 'deny', allow: { hiTypes?: string[]; validityDays?: number; keepDays?: number } = {}) => { await http(`/exchange/consents/${id}/decision`, { method: 'POST', body: { decision, ...allow } }); notify(); },
   revokeConsent: async (id: string) => { await http(`/exchange/consents/${id}/revoke`, { method: 'POST', body: {} }); notify(); },
   fetchRecord: async (id: string) => { const r = await http<{ receivedId: string }>(`/exchange/consents/${id}/fetch`, { method: 'POST', body: {} }); notify(); return r.receivedId; },
   listReceived: () => http<{ items: ReceivedRecordItem[] }>('/exchange/received').then(r => r.items),
   getReceived: (id: string) => http<ReceivedRecordView>(`/exchange/received/${id}`),
   annotate: async (id: string, text: string) => { await http(`/exchange/received/${id}/annotations`, { method: 'POST', body: { text } }); notify(); },
+  registrationIdentities: () => http<{ items: SandboxIdentity[] }>('/patients/register/identities').then(r => r.items),
+  registrationStart: (input: RegistrationInput) => http<RegistrationDraft>('/patients/register/start', { method: 'POST', body: input }),
+  registrationVerify: async (draftId: string, otp: string) => { await http('/patients/register/verify', { method: 'POST', body: { draftId, otp } }); },
+  registrationComplete: async (draftId: string, consent: { purposes: string[]; mode: 'in-person-signed' | 'in-person-verbal' }) => {
+    const r = await http<{ patient: RegisteredPatient }>('/patients/register/complete', { method: 'POST', body: { draftId, consent } });
+    notify();
+    return r.patient;
+  },
+  changeShareConsent: async (patientId: string, action: 'grant' | 'withdraw', mode?: 'in-person-signed' | 'in-person-verbal', reason?: string) => {
+    const r = await http<RegisteredPatient>(`/patients/${encodeURIComponent(patientId)}/consent`, { method: 'POST', body: { action, purpose: 'share-abdm', mode, reason } });
+    notify();
+    return r;
+  },
+  erasePatient: async (patientId: string, confirmName: string, reason: string) => { await http(`/patients/${encodeURIComponent(patientId)}/erase`, { method: 'POST', body: { confirmName, reason } }); notify(); },
+  getSummary: (patientId: string) => http<RecordSummary>(`/patients/${encodeURIComponent(patientId)}/summary`),
+  getCounselling: (patientId: string) => http<Counselling>(`/patients/${encodeURIComponent(patientId)}/counselling`),
+  addAdvice: async (patientId: string, text: string) => { await http(`/patients/${encodeURIComponent(patientId)}/advice`, { method: 'POST', body: { text } }); notify(); },
+  recordEducation: async (patientId: string, topic: string) => { await http(`/patients/${encodeURIComponent(patientId)}/education`, { method: 'POST', body: { topic } }); notify(); },
+  raiseEdit: async (patientId: string, input: { subject: string; proposed: string; reason: string }) => { await http(`/patients/${encodeURIComponent(patientId)}/edit-requests`, { method: 'POST', body: input }); notify(); },
+  listEdits: (patientId: string) => http<{ items: EditRequest[] }>(`/patients/${encodeURIComponent(patientId)}/edit-requests`).then(r => r.items),
+  decideEdit: async (id: string, decision: 'accepted' | 'rejected', note: string) => { await http(`/edit-requests/${id}/decide`, { method: 'POST', body: { decision, note } }); notify(); },
+  directory: () => http<{ items: DirectoryEntry[] }>('/patients/directory').then(r => r.items),
+  askGeneral: (question: string, lang: 'en' | 'hi') => http<RecordAnswer>('/glossary/ask', { method: 'POST', body: { question, lang } }),
+  opdQueue: () => http<OpdQueue>('/opd/queue'),
+  opdWalkIn: async (abha: string, priority?: 'routine' | 'urgent') => { await http('/opd/walk-in', { method: 'POST', body: { abha, priority } }); notify(); },
+  opdAct: async (id: string, action: 'call' | 'done' | 'cancel' | 'priority') => { await http(`/opd/${id}/${action}`, { method: 'POST', body: {} }); notify(); },
+  opdSetMinutes: async (minutesPerPatient: number) => { await http('/opd/settings', { method: 'POST', body: { minutesPerPatient } }); notify(); },
+  attention: () => http<{ items: { kind: 'review' | 'queue' | 'correction'; title: string; patientId?: string; name?: string }[] }>('/attention').then(r => r.items),
+  opdMine: () => http<OpdMine>('/opd/me'),
+  opdScan: async (hfr: string) => { const r = await http<OpdMine>('/opd/scan-and-share', { method: 'POST', body: { hfr } }); notify(); return r; },
+  opdCancelMine: async () => { await http('/opd/me/cancel', { method: 'POST', body: {} }); notify(); },
+  networkMessages: () => http<{ items: NetworkMessage[] }>('/network/messages').then(r => r.items),
+  listRegistered: () => http<{ items: RegisteredPatient[] }>('/patients/registered').then(r => r.items),
+  getOwnHome: (patientId: string) => http<{ profile: RegisteredPatient; values: { code: string; label: string; date: string; value: number | null; display: string; status: string }[] }>(`/patients/${encodeURIComponent(patientId)}/home`),
+  getProfile: (patientId: string) => http<RegisteredPatient>(`/patients/${encodeURIComponent(patientId)}/profile`),
+  askRecord: (patientId: string, question: string, lang: 'en' | 'hi') => http<RecordAnswer>(`/patients/${encodeURIComponent(patientId)}/ask`, { method: 'POST', body: { question, lang } }),
+  retryDocument: async (docId: string) => { const r = await http<DocumentItem>(`/documents/${docId}/retry`, { method: 'POST', body: {} }); notify(); return r; },
   pushDocument: async (patientId: string, docId: string) => { await http(`/patients/${encodeURIComponent(patientId)}/documents/${docId}/push`, { method: 'POST', body: {} }); notify(); },
 
   /** Screens refetch when this fires (after a change). */

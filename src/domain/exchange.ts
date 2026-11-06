@@ -11,6 +11,13 @@ export interface ExchangeConsent {
   expiresAt: string | null;
   fetched: boolean;
   receivedId: string | null;
+  purposeCode: string;
+  hiTypes: ('OPConsultation' | 'Prescription' | 'DiagnosticReport')[];
+  dateFrom: string | null;
+  keepDays: number | null;
+  /** When the receiving hospital must have erased its copy. */
+  dataEraseAt: string | null;
+  requesterName: string;
 }
 
 export interface ReceivedRecordItem {
@@ -28,5 +35,7 @@ export interface ReceivedRecordView {
   receivedAt: string;
   bundle: { resourceType: string; entry: { resource: Record<string, unknown> & { resourceType: string } }[] };
   consentStatus: ExchangeConsent['status'];
+  /** What the patient allowed, as signed. */
+  allowed: { hiTypes: string[]; dateFrom: string | null; dateTo: string | null; purposeCode: string; dataEraseAt: string | null };
   annotations: { id: number; text: string; by: string; at: string }[];
 }

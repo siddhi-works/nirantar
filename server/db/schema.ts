@@ -169,7 +169,43 @@ export const simConsents = pgTable('sim_consents', {
   createdAt: ts('created_at').notNull().defaultNow(),
   decidedAt: ts('decided_at'),
   expiresAt: ts('expires_at'),
+  /** The consent artefact, as ABDM describes it: what may be asked for, for which period, and until when the receiver may keep it. */
+  purposeCode: text('purpose_code').notNull().default('CAREMGT'),
+  hiTypes: text('hi_types').notNull().default(''), // comma separated: OPConsultation, Prescription, DiagnosticReport
+  dateFrom: ts('date_from'),
+  dateTo: ts('date_to'),
+  keepDays: integer('keep_days'),
+  dataEraseAt: ts('data_erase_at'),
+  requesterName: text('requester_name').notNull().default(''),
+  requesterReg: text('requester_reg').notNull().default(''),
+  /** The signed artefact, set when the patient grants. The receiver and the sender each keep a copy. */
+  artefact: text('artefact'),
+  signature: text('signature'),
 }, t => [index('sim_consents_patient').on(t.patientId), index('sim_consents_hiu').on(t.hiuHfr)]);
+
+/** The sending hospital's own copy of a consent artefact, saved when the consent manager notifies it. */
+export const hipConsentCopies = pgTable('hip_consent_copies', {
+  consentId: text('consent_id').primaryKey(),
+  hipHfr: text('hip_hfr').notNull(),
+  workspace: text('workspace').notNull(),
+  artefact: text('artefact').notNull(),
+  signature: text('signature').notNull(),
+  status: text('status').notNull(), // GRANTED | REVOKED | EXPIRED
+  storedAt: ts('stored_at').notNull().defaultNow(),
+  revokedAt: ts('revoked_at'),
+});
+
+/** What the gateway holds in transit for the current scheme: ciphertext, the sender's public key material and a checksum. */
+export const abdmTransfers = pgTable('abdm_transfers', {
+  id: text('id').primaryKey(),
+  consentId: text('consent_id').notNull(),
+  hipHfr: text('hip_hfr').notNull(),
+  encryptedData: text('encrypted_data').notNull(),
+  hipKeyMaterial: text('hip_key_material').notNull(), // JSON: public key and nonce only
+  checksum: text('checksum').notNull(),
+  status: text('status').notNull(), // TRANSFERRED | FAILED
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
 
 /** What the gateway holds in transit. Ciphertext and public values only: it can never read the record. */
 export const simTransfers = pgTable('sim_transfers', {
@@ -186,6 +222,7 @@ export const simTransfers = pgTable('sim_transfers', {
 /** The receiving hospital's own private key for one transfer. It never reaches the gateway tables. */
 export const exchangeKeys = pgTable('exchange_keys', {
   id: text('id').primaryKey(), // same id as the transfer
+  nonce: text('nonce').notNull().default(''),
   hiuHfr: text('hiu_hfr').notNull(),
   privateKey: text('private_key').notNull(),
   publicKey: text('public_key').notNull(),
@@ -222,6 +259,145 @@ export const translations = pgTable('translations', {
 });
 
 /** One row per private sample space, so old ones can be cleared out. */
+/**
+ * Patients registered by staff during a visit to the site. Each belongs to one tester's workspace and to the hospital the
+ * staff member works at, so another tester (or another hospital) never sees them.
+ */
+export const registeredPatients = pgTable('registered_patients', {
+  id: text('id').primaryKey(), // R + 8 hex characters
+  workspace: text('workspace').notNull(),
+  hfrId: text('hfr_id').notNull(),
+  abha: text('abha').notNull(), // digits only
+  /** registry: the number was found in the sandbox ABHA registry and its profile matched. created: made by the sandbox for a patient with none. */
+  abhaSource: text('abha_source').notNull(),
+  name: text('name').notNull(),
+  age: integer('age').notNull(),
+  sex: text('sex').notNull(), // M | F | O
+  phone: text('phone').notNull(),
+  place: text('place'),
+  /** How and when the person was proven to be who they say. Nothing is saved before this exists. */
+  verifiedAt: ts('verified_at').notNull(),
+  verifyMethod: text('verify_method').notNull(), // mobile-otp
+  /** What the patient agreed to, which version of the wording, and how it was captured. */
+  consentPurposes: text('consent_purposes').notNull(), // comma separated: create-record, abha-link, share-abdm
+  consentVersion: text('consent_version').notNull(),
+  consentMode: text('consent_mode').notNull(), // in-person-signed | in-person-verbal
+  consentAt: ts('consent_at').notNull(),
+  byUserId: text('by_user_id').notNull(),
+  byLabel: text('by_label').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+}, t => [uniqueIndex('registered_workspace_abha').on(t.workspace, t.abha)]);
+
+/** Every time a patient gave or withdrew a consent. Append only: the current state is on the patient, this is the history. */
+export const consentEvents = pgTable('consent_events', {
+  id: serial('id').primaryKey(),
+  patientId: text('patient_id').notNull(), // the registered patient's id
+  workspace: text('workspace').notNull(),
+  action: text('action').notNull(), // granted | withdrawn
+  purposes: text('purposes').notNull(), // comma separated
+  mode: text('mode'),
+  reason: text('reason'),
+  byLabel: text('by_label').notNull(),
+  at: ts('at').notNull().defaultNow(),
+}, t => [index('consent_events_patient').on(t.patientId)]);
+
+/** A registration that has been started but not finished. It becomes a patient only after identity and consent are both done. */
+export const registrationDrafts = pgTable('registration_drafts', {
+  id: text('id').primaryKey(),
+  workspace: text('workspace').notNull(),
+  hfrId: text('hfr_id').notNull(),
+  userId: text('user_id').notNull(),
+  details: text('details').notNull(), // the checked details, as JSON
+  abha: text('abha').notNull(),
+  abhaSource: text('abha_source').notNull(),
+  otpHash: text('otp_hash').notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  verifiedAt: ts('verified_at'),
+  expiresAt: ts('expires_at').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+}, t => [index('registration_drafts_ws').on(t.workspace)]);
+
+/**
+ * The OPD queue of one hospital on one day, in one tester's space. A patient joins by sharing their profile (Scan & Share) or
+ * is added at the desk. Waiting time is predicted from how long recent consultations took.
+ */
+export const opdVisits = pgTable('opd_visits', {
+  id: text('id').primaryKey(),
+  workspace: text('workspace').notNull(),
+  hfrId: text('hfr_id').notNull(),
+  day: text('day').notNull(), // YYYY-MM-DD, Indian date
+  token: integer('token').notNull(),
+  patientId: text('patient_id').notNull(),
+  name: text('name').notNull(),
+  abha: text('abha'),
+  source: text('source').notNull(), // scan-and-share | desk
+  priority: text('priority').notNull().default('routine'), // routine | urgent
+  status: text('status').notNull(), // waiting | ongoing | done | cancelled
+  byLabel: text('by_label').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  calledAt: ts('called_at'),
+  doneAt: ts('done_at'),
+}, t => [index('opd_visits_day').on(t.workspace, t.hfrId, t.day), uniqueIndex('opd_visits_token').on(t.workspace, t.hfrId, t.day, t.token)]);
+
+/** What staff say one consultation takes here, used for the waiting time until enough real ones have been timed. Nothing is assumed. */
+export const opdSettings = pgTable('opd_settings', {
+  workspace: text('workspace').notNull(),
+  hfrId: text('hfr_id').notNull(),
+  minutesPerPatient: integer('minutes_per_patient').notNull(),
+  byLabel: text('by_label').notNull(),
+  at: ts('at').notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.workspace, t.hfrId] })]);
+
+/** A patient's request to correct something in their record. Nobody edits a record for them: staff look at the original and decide. */
+export const editRequests = pgTable('edit_requests', {
+  id: text('id').primaryKey(),
+  workspace: text('workspace').notNull(),
+  patientId: text('patient_id').notNull(),
+  subject: text('subject').notNull(), // what the patient points at, in words, e.g. "HbA1c 5.9% on 3 Dec 2027"
+  subjectRef: text('subject_ref'), // the fact or value id when there is one
+  proposed: text('proposed').notNull(),
+  reason: text('reason').notNull(),
+  status: text('status').notNull(), // pending | accepted | rejected
+  byLabel: text('by_label').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  decidedBy: text('decided_by'),
+  decisionNote: text('decision_note'),
+  decidedAt: ts('decided_at'),
+}, t => [index('edit_requests_patient').on(t.workspace, t.patientId)]);
+
+/** Advice a doctor writes for a patient outside a follow-up slip, such as for a patient registered today. */
+export const patientAdvice = pgTable('patient_advice', {
+  id: serial('id').primaryKey(),
+  workspace: text('workspace').notNull(),
+  patientId: text('patient_id').notNull(),
+  text: text('text').notNull(),
+  byLabel: text('by_label').notNull(),
+  at: ts('at').notNull().defaultNow(),
+}, t => [index('patient_advice_patient').on(t.workspace, t.patientId)]);
+
+/** Counselling and education given to a patient, and by whom. */
+export const educationLog = pgTable('education_log', {
+  id: serial('id').primaryKey(),
+  workspace: text('workspace').notNull(),
+  patientId: text('patient_id').notNull(),
+  topic: text('topic').notNull(),
+  byLabel: text('by_label').notNull(),
+  at: ts('at').notNull().defaultNow(),
+}, t => [index('education_log_patient').on(t.workspace, t.patientId)]);
+
+/** Every message that passed between the hospital systems and the sandbox gateway, so what happened can be inspected. */
+export const gatewayMessages = pgTable('gateway_messages', {
+  id: serial('id').primaryKey(),
+  workspace: text('workspace').notNull(),
+  requestId: text('request_id').notNull(),
+  from: text('from_party').notNull(),
+  to: text('to_party').notNull(),
+  path: text('path').notNull(),
+  status: text('status').notNull(), // ok | rejected | error
+  summary: text('summary').notNull(), // what it was about, never the health data itself
+  at: ts('at').notNull().defaultNow(),
+}, t => [index('gateway_messages_ws').on(t.workspace)]);
+
 export const workspaces = pgTable('workspaces', {
   id: text('id').primaryKey(),
   createdAt: ts('created_at').notNull().defaultNow(),

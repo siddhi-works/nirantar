@@ -8,6 +8,10 @@ import { documentRoutes } from './routes/documents';
 import { exchangeRoutes } from './routes/exchange';
 import { languageRoutes } from './routes/language';
 import { maintenanceRoutes } from './routes/maintenance';
+import { assistantRoutes } from './routes/assistant';
+import { registrationRoutes } from './routes/registration';
+import { opdRoutes } from './routes/opd';
+import { careRoutes } from './routes/care';
 import { logError } from './log';
 
 export type { Deps };
@@ -49,12 +53,16 @@ export function createApp(deps: Deps) {
     return c.json({ ok: db === 'ready', auth: deps.auth.name, db }, db === 'ready' ? 200 : 503);
   });
   app.route('/', authRoutes(ctx));
+  app.route('/', registrationRoutes(ctx)); // before patientRoutes: /patients/register and /patients/registered must not read as ids
   app.route('/', patientRoutes(ctx));
   app.route('/', observationRoutes(ctx));
   app.route('/', documentRoutes(ctx));
   app.route('/', exchangeRoutes(ctx));
   app.route('/', languageRoutes(ctx));
   app.route('/', maintenanceRoutes(ctx));
+  app.route('/', assistantRoutes(ctx));
+  app.route('/', opdRoutes(ctx));
+  app.route('/', careRoutes(ctx));
 
   app.notFound(c => c.json({ error: 'not_found', path: c.req.path }, 404));
   app.onError((err, c) => {

@@ -99,6 +99,19 @@ export function documentRoutes(ctx: AppCtx) {
     return d ? c.json(await item(d)) : c.json(NOT_FOUND, 404);
   });
 
+  /** Read a document again after a failed or interrupted read, so nothing has to be uploaded a second time. */
+  r.post('/documents/:docId/retry', requireUser(), async c => {
+    const d = await docFor(c, 'retry-document-read');
+    if (!d) return c.json(NOT_FOUND, 404);
+    if ((await item(d)).status !== 'failed') return c.json({ error: 'invalid', message: 'This document does not need another try.' }, 409);
+    const [have] = await db.select({ n: count() }).from(observations).where(eq(observations.documentId, d.id));
+    if ((have?.n ?? 0) > 0) return c.json({ error: 'invalid', message: 'Values from this document are already on the review list.' }, 409);
+    await db.update(documents).set({ status: 'queued', error: null, completedAt: null, createdAt: new Date() }).where(eq(documents.id, d.id));
+    await processDocument({ db, files, ocr }, d.id);
+    const [fresh] = await db.select().from(documents).where(eq(documents.id, d.id));
+    return c.json(await item(fresh));
+  });
+
   r.get('/documents/:docId/file', requireUser(), async c => {
     const d = await docFor(c, 'view-uploaded-file');
     const bytes = d ? await files.get(d.id) : null;

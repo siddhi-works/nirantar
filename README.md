@@ -78,3 +78,7 @@ api/index.ts    Vercel function entry
 - Hindi text has not been reviewed by a native speaker or a medical translator.
 - FHIR bundles follow the usual shape but have not been validated against the NHA profiles.
 - Real ABDM access (sandbox registration, milestone tests, security audit) is not part of this code.
+
+## Architecture and compliance
+
+See [docs/ARCHITECTURE-AND-COMPLIANCE.md](docs/ARCHITECTURE-AND-COMPLIANCE.md): which connections are real and which stand in for ABDM, the controls in the code, and what a real deployment still needs.

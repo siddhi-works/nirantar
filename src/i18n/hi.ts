@@ -3,7 +3,9 @@
  * Written for this prototype and not yet reviewed by a native Hindi speaker or a medical translator: have both check it
  * before real patients see it.
  */
-export const HI: Record<string, string> = {
+import { HI_MORE } from './hi-more';
+
+const HI_BASE: Record<string, string> = {
   // sign in
   'Welcome back': 'वापसी पर स्वागत है',
   'Choose how you are signing in.': 'चुनें कि आप कैसे साइन इन कर रहे हैं।',
@@ -65,7 +67,7 @@ export const HI: Record<string, string> = {
   'Allow': 'अनुमति दें', 'Decline': 'मना करें', 'Withdraw': 'वापस लें',
   'Allowed': 'अनुमति दी', 'Declined': 'मना किया', 'Withdrawn': 'वापस ली गई', 'Expired': 'समाप्त',
   'Waiting for the patient': 'मरीज़ के जवाब की प्रतीक्षा में',
-  'Withdrawing stops new transfers. A copy already received stays with that hospital until its permission ends.': 'अनुमति वापस लेने पर नई प्रतियाँ नहीं भेजी जाएँगी। जो प्रति पहले मिल चुकी है, वह उस अस्पताल के पास अनुमति समाप्त होने तक रहती है।',
+  'Withdrawing stops new transfers and the hospital must erase the copy it already received.': 'अनुमति वापस लेने पर नई प्रतियाँ नहीं मँगाई जा सकतीं और अस्पताल को अपनी मिली हुई प्रति मिटानी होगी।',
   'Treatment': 'इलाज', 'Follow-up care': 'फ़ॉलो-अप देखभाल', 'Second opinion': 'दूसरी राय',
   // uploads
   'Your uploaded documents': 'आपके अपलोड किए दस्तावेज़',
@@ -74,3 +76,6 @@ export const HI: Record<string, string> = {
   'Add an old prescription or report. Your doctor reviews what is read from it.': 'कोई पुरानी पर्ची या रिपोर्ट जोड़ें। उससे पढ़े गए मानों की समीक्षा आपके डॉक्टर करेंगे।',
   'Edit': 'बदलें',
 };
+
+/** The screens' own text, then the doctor, nurse and sign-in screens. Where both have a line, the screens' own wins. */
+export const HI: Record<string, string> = { ...HI_MORE, ...HI_BASE };
