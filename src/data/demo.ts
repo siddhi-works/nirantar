@@ -11,6 +11,12 @@ export const CREDENTIALS = {
   patient: { abha: '14-7004-8821-5590', otp: '482915' },
 };
 
+/** The two patients whose records exist. Shown on the doctor and nurse screens so a tester can use them. */
+export const SAMPLE_PATIENTS = [
+  { name: 'Mr. Rajesh Kumar Singh', abha: '91-2612-3348-1056', note: '60 years · diabetes, several visits' },
+  { name: 'Mrs. Savitri Devi Pandey', abha: '14-7004-8821-5590', note: 'diabetes follow-up' },
+];
+
 export type Kind = 'opd' | 'round' | 'meeting' | 'conference' | 'checkup' | 'lab' | 'break' | 'camp';
 export interface Slot { time: string; title: string; sub: string; kind: Kind }
 

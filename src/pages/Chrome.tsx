@@ -3,7 +3,7 @@ import { AlertCircle, AlertTriangle, Bell, CalendarClock, CheckCircle2, FlaskCon
 import { api } from '@/api';
 import { digits, formatAbha, useSession } from '@/session';
 import { useUi } from '@/ui/store';
-import { KIND_LABEL, type Slot } from '@/data/demo';
+import { KIND_LABEL, SAMPLE_PATIENTS, type Slot } from '@/data/demo';
 import { cx } from '@/ui/primitives';
 
 export function Logo({ size = 28 }: { size?: number }) {
@@ -103,6 +103,15 @@ export function LookupPanel({ title }: { title: string }) {
           {state === 'fetching' ? <><Loader2 size={15} className="spin" />Fetching record…</> : <><Search size={15} />Open record</>}
         </button>
       </form>
+      <div className="samples" aria-label="Sample patients for testing">
+        <span className="eyebrow">Sample patients for testing</span>
+        {SAMPLE_PATIENTS.map(p => (
+          <div key={p.abha} className="samples__row">
+            <span><b>{p.name}</b> <code>{p.abha}</code></span>
+            <button type="button" className="btn btn--secondary btn--sm" onClick={() => { setAbha(p.abha); setName(''); setState('idle'); setFound(null); }}>Use this number</button>
+          </div>
+        ))}
+      </div>
       {found && <div className="lookup__ok"><CheckCircle2 size={16} />Record found — {found}. Opening…</div>}
       {state === 'notfound' && <div className="lookup__err"><AlertTriangle size={16} />No record found for this ABHA number. Check the 14 digits and try again.</div>}
     </section>
