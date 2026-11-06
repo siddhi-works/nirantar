@@ -4,6 +4,8 @@ import { authAttempts } from '../db/schema';
 
 const WINDOW_MS = 10 * 60 * 1000;
 export const LIMITS = { failuresPerId: 5, failuresPerIp: 20, requestsPerId: 5 };
+/** Everyone together, per 10 minutes: a public link must not be able to spend all the language-service credits. */
+export const GLOBAL = { translate: 100, speech: 60, ocr: 20 };
 
 const since = () => new Date(Date.now() - WINDOW_MS);
 

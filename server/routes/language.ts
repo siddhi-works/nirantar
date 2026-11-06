@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { translations } from '../db/schema';
-import { countRequests, record } from '../auth/ratelimit';
+import { GLOBAL, countRequests, record } from '../auth/ratelimit';
 import { SUPPORTED } from '../language/provider';
 import type { AppCtx, Env } from '../ctx';
 
@@ -28,8 +28,9 @@ export function languageRoutes({ db, requireUser, translator, speaker }: AppCtx)
     if (missing.length) {
       if (!translator) return c.json({ error: 'not_configured' }, 501);
       const limitKey = `tr:${c.get('user').id}`;
-      if (await countRequests(db, limitKey) >= TRANSLATE_LIMIT) return c.json({ error: 'too_many_attempts' }, 429);
+      if (await countRequests(db, limitKey) >= TRANSLATE_LIMIT || await countRequests(db, 'tr:*') >= GLOBAL.translate) return c.json({ error: 'too_many_attempts' }, 429);
       await record(db, limitKey, true);
+      await record(db, 'tr:*', true);
       let out: string[];
       try { out = await translator.translate(missing, target as 'hi-IN'); } catch (e) { console.error('translate failed', e); return c.json({ error: 'unavailable' }, 502); }
       for (let i = 0; i < missing.length; i++) {
@@ -46,8 +47,9 @@ export function languageRoutes({ db, requireUser, translator, speaker }: AppCtx)
     if (!body.success) return c.json({ error: 'bad_request' }, 400);
     if (!speaker) return c.json({ error: 'not_configured' }, 501);
     const limitKey = `sp:${c.get('user').id}`;
-    if (await countRequests(db, limitKey) >= SPEECH_LIMIT) return c.json({ error: 'too_many_attempts' }, 429);
+    if (await countRequests(db, limitKey) >= SPEECH_LIMIT || await countRequests(db, 'sp:*') >= GLOBAL.speech) return c.json({ error: 'too_many_attempts' }, 429);
     await record(db, limitKey, true);
+    await record(db, 'sp:*', true);
     try { return c.json(await speaker.speak(body.data.text, body.data.lang)); } catch (e) { console.error('speech failed', e); return c.json({ error: 'unavailable' }, 502); }
   });
 

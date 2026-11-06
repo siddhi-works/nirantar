@@ -4,7 +4,7 @@ import { api } from '@/api';
 import { CREDENTIALS, FACILITY, OTHER_DOCTOR, OTHER_FACILITY } from '@/data/demo';
 import { formatAbha, useSession, type AppRole } from '@/session';
 import { useUi } from '@/ui/store';
-import { Logo } from './Chrome';
+import { FeedbackLink, Logo } from './Chrome';
 import { useT } from '@/i18n';
 import { LangToggle } from '@/i18n/controls';
 
@@ -93,8 +93,22 @@ export default function Login() {
 
           <button className="btn login__go" disabled={busy}>{busy ? t('Verifying…') : <>{t('Verify and log in')} <ArrowRight size={16} /></>}</button>
           {err && <div className="error-text" role="alert">{err}</div>}
-          <p className="hint" style={{ textAlign: 'center' }}>Test details are pre-filled — just press the button.</p>
+          <p className="hint" style={{ textAlign: 'center' }}>Test details are pre-filled. Just press the button.</p>
         </form>
+
+        <details className="tour card">
+          <summary>New here? Take the two-minute tour</summary>
+          <p>Everything on this site is sample data. Your uploads and changes are private to this browser, so other people testing the site never see them.</p>
+          <ol>
+            <li><b>Doctor</b> (filled in already): sign in, then open a patient by ABHA number. Use <code>91-2612-3348-1056</code> (Mr. Rajesh Kumar Singh) or <code>14-7004-8821-5590</code> (Mrs. Savitri Devi Pandey).</li>
+            <li>Click a point on a chart, or a source chip, to see the slip a value came from. Choose “Correct value” to see that the original stays on record.</li>
+            <li>Choose “Upload document”, then “Use the sample prescription”. Confirm, correct or reject what was read from it.</li>
+            <li>Log out and choose <b>Patient</b> with <code>91-2612-3348-1056</code>. A request from another hospital is waiting. Allow it.</li>
+            <li>Log out, then use “Sign in as a doctor at another hospital” and fetch the record. It arrives encrypted and read-only.</li>
+          </ol>
+          <p>The English and Hindi buttons switch the language on the patient screens. “Start with fresh sample data” in the top bar clears your changes.</p>
+          <FeedbackLink />
+        </details>
       </main>
     </div>
   );

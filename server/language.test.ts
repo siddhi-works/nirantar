@@ -54,6 +54,18 @@ describe('translation', () => {
   });
 });
 
+describe('limits for everyone together', () => {
+  it('stop all visitors combined from spending the translation credits', async () => {
+    const lone = await setup({ translator });
+    let last = 0;
+    for (let i = 0; i < 105; i++) {
+      const who = i % 2 ? await lone.nurse(`${String(i).padStart(12, '0').replace(/\d/g, d => 'abcdefabcd'[Number(d)])}`) : await lone.doctor(`${String(i).padStart(12, '0').replace(/\d/g, d => 'abcdefabcd'[Number(d)])}`);
+      last = (await lone.post('/translate', { texts: [`unique line ${i}`], target: 'hi-IN' }, who)).status;
+    }
+    expect(last).toBe(429);
+  }, 120_000);
+});
+
 describe('speech', () => {
   it('returns audio, and tells the browser to use its own voice when no service is connected', async () => {
     const p = await h.patient(P1_ABHA);

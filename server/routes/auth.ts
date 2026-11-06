@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
-import { deleteCookie, setCookie } from 'hono/cookie';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { GENERIC_AUTH_ERROR, type AppRole, type SessionUser } from '../../src/domain/api';
 import { accessLog, sessions, users } from '../db/schema';
-import { COOKIE, hashToken, newToken } from '../auth/session';
+import { COOKIE, WS_COOKIE, hashToken, newToken } from '../auth/session';
+import { WORKSPACE_RE, ensureWorkspace, newWorkspaceId } from '../seed';
 import { LIMITS, countFailures, countRequests, record } from '../auth/ratelimit';
 import { digits, type AppCtx, type Env } from '../ctx';
 
@@ -53,9 +54,14 @@ export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
       return c.json({ error: 'invalid_credentials', message: GENERIC_AUTH_ERROR }, 401);
     }
 
+    const kept = getCookie(c, WS_COOKIE);
+    const ws = kept && WORKSPACE_RE.test(kept) ? kept : newWorkspaceId();
+    await ensureWorkspace(db, ws);
+
     const token = newToken();
-    await db.insert(sessions).values({ id: hashToken(token), userId: user.id, expiresAt: new Date(Date.now() + config.sessionHours * 3_600_000) });
+    await db.insert(sessions).values({ id: hashToken(token), userId: user.id, workspace: ws, expiresAt: new Date(Date.now() + config.sessionHours * 3_600_000) });
     setCookie(c, COOKIE, token, { httpOnly: true, secure: config.secureCookies, sameSite: 'Lax', path: '/', maxAge: config.sessionHours * 3600 });
+    setCookie(c, WS_COOKIE, ws, { httpOnly: true, secure: config.secureCookies, sameSite: 'Lax', path: '/', maxAge: 90 * 86400 }); // after the session cookie, which stays first
     await db.insert(accessLog).values({ userId: user.id, role: user.role, action: 'sign-in', outcome: 'allowed' });
     return c.json({ user: { role: user.role as AppRole, name: user.name, line: user.line, patientId: user.patientId ?? undefined } satisfies SessionUser });
   });
@@ -63,6 +69,19 @@ export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
   r.get('/auth/me', requireUser(), c => {
     const u = c.get('user');
     return c.json({ user: { role: u.role, name: u.name, line: u.line, patientId: u.patientId ?? undefined } satisfies SessionUser });
+  });
+
+  /** Move this browser to a new, empty sample space. Only this tester's own additions are left behind. */
+  r.post('/workspace/fresh', requireUser(), async c => {
+    const me = c.get('user');
+    const key = `fresh:${me.id}:${c.req.header('x-forwarded-for') ?? 'local'}`;
+    if (await countRequests(db, key) >= 5) return c.json({ error: 'too_many_attempts' }, 429);
+    await record(db, key, true);
+    const ws = newWorkspaceId();
+    await ensureWorkspace(db, ws);
+    await db.update(sessions).set({ workspace: ws }).where(eq(sessions.id, me.sessionId));
+    setCookie(c, WS_COOKIE, ws, { httpOnly: true, secure: config.secureCookies, sameSite: 'Lax', path: '/', maxAge: 90 * 86400 });
+    return c.json({ ok: true });
   });
 
   r.post('/auth/logout', requireUser(), async c => {

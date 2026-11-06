@@ -16,6 +16,31 @@ export function Logo({ size = 28 }: { size?: number }) {
   );
 }
 
+const FEEDBACK_URL: string = import.meta.env.VITE_FEEDBACK_URL ?? '';
+
+/** Clears this tester's own uploads and changes. Other testers' sample spaces are not touched. */
+function FreshStart() {
+  const [ask, setAsk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const toast = useUi(s => s.toast);
+  const go = async () => {
+    setBusy(true);
+    try { await api.freshWorkspace(); location.reload(); } catch { toast('Could not start fresh. Try again in a minute.', 'error'); setBusy(false); setAsk(false); }
+  };
+  if (!ask) return <button type="button" className="btn btn--ghost btn--sm" onClick={() => setAsk(true)} title="Your uploads and changes are private to this browser. This clears them.">Start with fresh sample data</button>;
+  return (
+    <span className="row" style={{ gap: 6 }} role="group" aria-label="Confirm starting fresh">
+      <small>Clear your uploads and changes?</small>
+      <button type="button" className="btn btn--sm" onClick={go} disabled={busy}>{busy ? 'Clearing…' : 'Yes, clear them'}</button>
+      <button type="button" className="btn btn--ghost btn--sm" onClick={() => setAsk(false)} disabled={busy}>No</button>
+    </span>
+  );
+}
+
+export const FeedbackLink = () => FEEDBACK_URL
+  ? <a className="btn btn--ghost btn--sm" href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer">Give feedback</a>
+  : null;
+
 export function TopBar({ right }: { right?: ReactNode }) {
   const { user, logout } = useSession();
   return (
@@ -23,6 +48,8 @@ export function TopBar({ right }: { right?: ReactNode }) {
       <div className="bar__brand"><Logo size={30} /><span>Nirantar</span></div>
       <div className="grow" />
       {right}
+      <FeedbackLink />
+      <FreshStart />
       <div className="bar__user">
         <span className="avatar avatar--sm">{user?.name.replace(/^(Mrs?|Dr|Nurse)\.?\s*/, '')[0]}</span>
         <span><b>{user?.name}</b><small>{user?.line}</small></span>

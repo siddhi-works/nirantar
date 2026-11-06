@@ -8,6 +8,7 @@ import type { OcrProvider } from './ocr/provider';
 import type { Speaker, Translator } from './language/provider';
 
 export const OTP = '482915';
+export const TEST_WS = 'aaaaaaaaaaaa';
 export const P1_ABHA = '91-2612-3348-1056';
 export const P2_ABHA = '14-7004-8821-5590';
 
@@ -19,8 +20,8 @@ export async function setup(opts: { ocr?: OcrProvider; translator?: Translator; 
     app.request(`/api${path}`, { method, headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}), ...extra }, body: body !== undefined ? JSON.stringify(body) : undefined });
   const get = (path: string, cookie?: string) => req('GET', path, undefined, cookie);
   const post = (path: string, body: unknown, cookie?: string, extra?: Record<string, string>) => req('POST', path, body, cookie, extra);
-  async function signIn(body: Record<string, string>): Promise<string> {
-    const r = await post('/auth/otp/verify', { otp: OTP, ...body });
+  async function signIn(body: Record<string, string>, ws: string = TEST_WS): Promise<string> {
+    const r = await post('/auth/otp/verify', { otp: OTP, ...body }, `nirantar_ws=${ws}`);
     expect(r.status).toBe(200);
     return r.headers.get('set-cookie')!.split(';')[0];
   }
@@ -32,10 +33,10 @@ export async function setup(opts: { ocr?: OcrProvider; translator?: Translator; 
   };
   return {
     db, app, upload, get, post, req, signIn,
-    doctor: () => signIn({ role: 'doctor', hprId: DEV_DOCTOR.hprId, hfrId: FACILITY_HFR }),
-    doctorB: () => signIn({ role: 'doctor', hprId: DEV_DOCTOR_B.hprId, hfrId: OTHER_HFR }),
-    nurse: () => signIn({ role: 'nurse', hprId: DEV_NURSE.hprId, hfrId: FACILITY_HFR }),
-    patient: (abha: string) => signIn({ role: 'patient', abha }),
+    doctor: (ws?: string) => signIn({ role: 'doctor', hprId: DEV_DOCTOR.hprId, hfrId: FACILITY_HFR }, ws),
+    doctorB: (ws?: string) => signIn({ role: 'doctor', hprId: DEV_DOCTOR_B.hprId, hfrId: OTHER_HFR }, ws),
+    nurse: (ws?: string) => signIn({ role: 'nurse', hprId: DEV_NURSE.hprId, hfrId: FACILITY_HFR }, ws),
+    patient: (abha: string, ws?: string) => signIn({ role: 'patient', abha }, ws),
   };
 }
 export type Harness = Awaited<ReturnType<typeof setup>>;

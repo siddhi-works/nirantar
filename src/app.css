@@ -163,7 +163,7 @@
 
 /* the top bar wraps on a phone: the brand and the user's controls on one line, "Exit to dashboard" on its own */
 @media (max-width: 560px) {
-  .bar { height: auto; min-height: 60px; flex-wrap: wrap; padding-block: 8px; gap: 8px; }
+  .bar { height: auto; min-height: 60px; flex-wrap: wrap; padding-block: 8px; gap: 8px; position: static; } /* scrolls away on a phone so it does not eat the screen */
   .bar__brand span { font-size: 18px; }
   .bar .grow { flex-basis: 0; }
   .bar > .btn { order: 3; flex: 1 1 calc(50% - 4px); justify-content: center; }

@@ -7,6 +7,7 @@ import { pdfPages, MIN_TEXT } from './extract/text';
 import { extractValues } from './extract/values';
 import { OcrUnavailable, type OcrProvider } from './ocr/provider';
 import { todayIST } from './time';
+import { GLOBAL, countRequests, record } from './auth/ratelimit';
 
 const today = () => todayIST();
 
@@ -32,6 +33,8 @@ export async function processDocument(deps: { db: Db; files: FileStore; ocr?: Oc
     }
     if (!pages.some(p => p.trim().length >= MIN_TEXT)) {
       if (!ocr) throw new OcrUnavailable(NEEDS_OCR_MESSAGE);
+      if (await countRequests(db, 'ocr:*') >= GLOBAL.ocr) throw new OcrUnavailable('The reading service is busy. Try again in a few minutes.');
+      await record(db, 'ocr:*', true);
       method = 'ocr';
       pages = await ocr.recognise(bytes, doc.mime);
     }

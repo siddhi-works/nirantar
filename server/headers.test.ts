@@ -29,10 +29,10 @@ describe('headers sent with every page', () => {
   it('gives the function a time limit long enough for a slow scan to be read', () => {
     expect(vercel.functions['api/**/*.ts'].maxDuration).toBe(60);
   });
-  it('runs the API as one catch-all function in Mumbai, with the folders it reads at run time', () => {
+  it('runs the API as one catch-all function in a single region next to the database, with the folders it reads at run time', () => {
     expect(vercel.rewrites).toBeUndefined();
     const fn = vercel.functions['api/**/*.ts'];
-    expect(fn.regions).toEqual(['bom1']);
+    expect(fn.regions).toHaveLength(1); // one region, chosen to sit next to the database (see DEPLOY.md)
     expect(fn.includeFiles).toContain('db/migrations');
     expect(fn.includeFiles).toContain('assets');
   });

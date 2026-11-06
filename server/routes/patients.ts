@@ -6,6 +6,7 @@ import { buildRecall } from '../core/engine';
 import { documentView } from '../core/views';
 import { originalPdf } from '../storage';
 import { NOT_FOUND, digits, patientOf, type AppCtx, type Env } from '../ctx';
+import { scope } from '../seed';
 
 export const patientIdParam = z.string().regex(/^P\d{1,6}$/);
 const docIdParam = z.string().regex(/^[A-Za-z0-9-]{1,40}$/);
@@ -31,14 +32,14 @@ export function patientRoutes(ctx: AppCtx) {
   r.get('/patients/:id/recall', requireUser(), async c => {
     const id = patientIdParam.safeParse(c.req.param('id'));
     if (!id.success || !(await open(c, id.data, 'view-record'))) return c.json(NOT_FOUND, 404);
-    return c.json(buildRecall(id.data, await opsFor(id.data)));
+    return c.json(buildRecall(id.data, await opsFor(id.data, c.get('user').workspace)));
   });
 
   r.get('/patients/:id/documents/:docId', requireUser(), async c => {
     const id = patientIdParam.safeParse(c.req.param('id'));
     const doc = docIdParam.safeParse(c.req.param('docId'));
     if (!id.success || !doc.success || !(await open(c, id.data, 'view-document'))) return c.json(NOT_FOUND, 404);
-    return c.json(documentView(id.data, doc.data, await opsFor(id.data)));
+    return c.json(documentView(id.data, doc.data, await opsFor(id.data, c.get('user').workspace)));
   });
 
   r.get('/patients/:id/original', requireUser(), async c => {
@@ -54,12 +55,12 @@ export function patientRoutes(ctx: AppCtx) {
     const body = z.object({ factIds: z.array(z.string().max(80)).min(1).max(50) }).safeParse(await c.req.json().catch(() => null));
     if (!id.success || !(await open(c, id.data, 'verify-values'))) return c.json(NOT_FOUND, 404);
     if (!body.success) return c.json({ error: 'bad_request' }, 400);
-    const known = new Set(buildRecall(id.data, await opsFor(id.data)).facts.map(f => f.id));
+    const known = new Set(buildRecall(id.data, await opsFor(id.data, c.get('user').workspace)).facts.map(f => f.id));
     const ids = [...new Set(body.data.factIds)].filter(f => known.has(f));
     if (!ids.length) return c.json({ error: 'bad_request' }, 400);
     const user = c.get('user');
     await db.insert(factVerifications)
-      .values(ids.map(factId => ({ patientId: id.data, factId, byUserId: user.id, byLabel: user.name })))
+      .values(ids.map(factId => ({ patientId: scope(id.data, user.workspace), factId, byUserId: user.id, byLabel: user.name })))
       .onConflictDoNothing();
     return c.json({ count: ids.length });
   });

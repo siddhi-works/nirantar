@@ -19,8 +19,25 @@ const unauthorized = new Set<Listener>();
 let version = 0;
 const notify = () => { version += 1; listeners.forEach(l => l()); };
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** The first request after a quiet spell can meet a database that is still waking up, so a read is tried once more. */
+async function fetchRetry(url: string, init: RequestInit): Promise<Response> {
+  const read = !init.method || init.method === 'GET';
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const res = await fetch(url, init);
+      if (read && attempt === 0 && [502, 503, 504].includes(res.status)) { await sleep(1500); continue; }
+      return res;
+    } catch (e) {
+      if (read && attempt === 0) { await sleep(1500); continue; }
+      throw e;
+    }
+  }
+}
+
 async function http<T>(path: string, init: { method?: 'GET' | 'POST'; body?: unknown } = {}): Promise<T> {
-  const res = await fetch(`/api${path}`, {
+  const res = await fetchRetry(`/api${path}`, {
     method: init.method ?? 'GET',
     credentials: 'same-origin',
     headers: init.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
@@ -93,6 +110,15 @@ export const api = {
     const res = await fetch('/api/speech', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang }) });
     return res.ok ? ((await res.json()) as { audio: string; mime: string }) : null;
   },
+
+  /** Upload the sample prescription for this patient, so nobody needs a file of their own. */
+  uploadSample: async (patientId: string): Promise<DocumentItem> => {
+    const doc = await http<DocumentItem>(`/patients/${encodeURIComponent(patientId)}/documents/sample`, { method: 'POST', body: {} });
+    notify();
+    return doc;
+  },
+  /** Move this browser to a new, empty sample space. Other testers are not affected. */
+  freshWorkspace: async () => { await http('/workspace/fresh', { method: 'POST', body: {} }); },
 
   /* ───────── record exchange between hospitals (ABDM simulator) ───────── */
   requestConsent: async (abha: string, purpose: string, validityDays: number) => { await http('/exchange/requests', { method: 'POST', body: { abha, purpose, validityDays } }); notify(); },

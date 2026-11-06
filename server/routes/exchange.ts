@@ -12,6 +12,7 @@ import { buildBundle, type FhirBundle } from '../sim/fhir';
 import { facilityName } from '../sim/facilities';
 import { NOT_FOUND, digits, patientOf, type AppCtx, type Env } from '../ctx';
 import { patientIdParam } from './patients';
+import { baseOf, scope } from '../seed';
 
 type ConsentRow = typeof simConsents.$inferSelect;
 
@@ -51,11 +52,11 @@ export function exchangeRoutes(ctx: AppCtx) {
     const abha = digits(body.data.abha);
     const [p] = await db.select().from(patients).where(eq(patients.abha, abha)).limit(1);
     const hfr = user.hfrId ?? '';
-    const dup = (await db.select().from(simConsents).where(and(eq(simConsents.abha, abha), eq(simConsents.hiuHfr, hfr))))
+    const dup = (await db.select().from(simConsents).where(and(eq(simConsents.abha, abha), eq(simConsents.hiuHfr, hfr), eq(simConsents.workspace, user.workspace))))
       .some(x => x.status === 'requested' || effective(x) === 'granted');
     // A request for a number nobody has is stored too, so the hospital's list looks the same either way.
     if (!dup && hfr !== HOME_HFR) {
-      await db.insert(simConsents).values({ id: randomUUID(), patientId: p?.id ?? null, abha, hiuHfr: hfr, hiuUserId: user.id, hiuName: facilityName(hfr), purpose: body.data.purpose, validityDays: body.data.validityDays, status: 'requested' });
+      await db.insert(simConsents).values({ id: randomUUID(), patientId: p ? scope(p.id, user.workspace) : null, abha, hiuHfr: hfr, hiuUserId: user.id, hiuName: facilityName(hfr), workspace: user.workspace, purpose: body.data.purpose, validityDays: body.data.validityDays, status: 'requested' });
     }
     await db.insert(accessLog).values({ userId: user.id, role: user.role, action: 'exchange-request', patientId: p?.id ?? null, outcome: 'allowed' });
     return c.json({ ok: true }, 202);
@@ -63,8 +64,8 @@ export function exchangeRoutes(ctx: AppCtx) {
 
   /** The requesting hospital's own list. Never names the patient before they have agreed. */
   r.get('/exchange/requests', requireUser('doctor', 'nurse'), async c => {
-    const hfr = c.get('user').hfrId ?? '';
-    const rows = await db.select().from(simConsents).where(eq(simConsents.hiuHfr, hfr)).orderBy(desc(simConsents.createdAt));
+    const me = c.get('user'); const hfr = me.hfrId ?? '';
+    const rows = await db.select().from(simConsents).where(and(eq(simConsents.hiuHfr, hfr), eq(simConsents.workspace, me.workspace))).orderBy(desc(simConsents.createdAt));
     const { fetched, received } = await receivedIndex(rows.map(x => x.id));
     return c.json({ items: rows.map(x => toConsent(x, fetched, received)) });
   });
@@ -72,15 +73,15 @@ export function exchangeRoutes(ctx: AppCtx) {
   /* ───────── the patient decides ───────── */
 
   r.get('/exchange/consents', requireUser('patient'), async c => {
-    const pid = c.get('user').patientId ?? '';
-    const rows = await db.select().from(simConsents).where(eq(simConsents.patientId, pid)).orderBy(desc(simConsents.createdAt));
+    const me = c.get('user');
+    const rows = await db.select().from(simConsents).where(eq(simConsents.patientId, scope(me.patientId ?? '-', me.workspace))).orderBy(desc(simConsents.createdAt));
     const { fetched, received } = await receivedIndex(rows.map(x => x.id));
     return c.json({ items: rows.map(x => toConsent(x, fetched, received)) });
   });
 
   async function mine(c: Parameters<typeof open>[0]) {
     const user = c.get('user');
-    const [row] = await db.select().from(simConsents).where(and(eq(simConsents.id, c.req.param('id') ?? ''), eq(simConsents.patientId, user.patientId ?? '-'))).limit(1);
+    const [row] = await db.select().from(simConsents).where(and(eq(simConsents.id, c.req.param('id') ?? ''), eq(simConsents.patientId, scope(user.patientId ?? '-', user.workspace)))).limit(1);
     return row;
   }
 
@@ -110,7 +111,7 @@ export function exchangeRoutes(ctx: AppCtx) {
   r.post('/exchange/consents/:id/fetch', requireUser('doctor', 'nurse'), async c => {
     const user = c.get('user');
     const [consent] = await db.select().from(simConsents).where(eq(simConsents.id, c.req.param('id') ?? '')).limit(1);
-    const allowed = !!consent && consent.hiuHfr === user.hfrId && effective(consent) === 'granted' && !!consent.patientId && !!patientOf(consent.patientId);
+    const allowed = !!consent && consent.workspace === user.workspace && consent.hiuHfr === user.hfrId && effective(consent) === 'granted' && !!consent.patientId && !!patientOf(baseOf(consent.patientId));
     await db.insert(accessLog).values({ userId: user.id, role: user.role, action: 'exchange-fetch', patientId: consent?.patientId ?? null, outcome: allowed ? 'allowed' : 'denied' });
     if (!allowed || !consent?.patientId) return c.json(NOT_FOUND, 404);
 
@@ -120,7 +121,7 @@ export function exchangeRoutes(ctx: AppCtx) {
     await db.insert(exchangeKeys).values({ id: transferId, hiuHfr: consent.hiuHfr, privateKey: hiu.privateKey, publicKey: hiu.publicKey });
 
     // Sender (the hospital that holds the record): builds the bundle and encrypts it for the receiver's public key.
-    const recall = buildRecall(consent.patientId, await opsFor(consent.patientId));
+    const recall = buildRecall(baseOf(consent.patientId), await opsFor(baseOf(consent.patientId), consent.workspace));
     const sealed = seal(JSON.stringify(buildBundle(recall, { hfr: HOME_HFR, name: facilityName(HOME_HFR) })), hiu.publicKey);
 
     // Gateway: holds ciphertext and public values only, and hands them on.
@@ -132,7 +133,7 @@ export function exchangeRoutes(ctx: AppCtx) {
     let plain: string;
     try { plain = unseal({ ciphertext: t.ciphertext, iv: t.iv, salt: t.salt, senderPublicKey: t.hipPublicKey }, k.privateKey); } catch { return c.json({ error: 'invalid', message: 'The record could not be verified and was not stored.' }, 502); }
     const receivedId = randomUUID();
-    await db.insert(receivedRecords).values({ id: receivedId, patientId: consent.patientId, consentId: consent.id, hiuHfr: consent.hiuHfr, fromHfr: t.hipHfr, bundle: plain });
+    await db.insert(receivedRecords).values({ id: receivedId, patientId: consent.patientId, consentId: consent.id, hiuHfr: consent.hiuHfr, workspace: consent.workspace, fromHfr: t.hipHfr, bundle: plain });
     return c.json({ receivedId }, 201);
   });
 
@@ -144,8 +145,8 @@ export function exchangeRoutes(ctx: AppCtx) {
   };
 
   r.get('/exchange/received', requireUser('doctor', 'nurse'), async c => {
-    const hfr = c.get('user').hfrId ?? '';
-    const rows = await db.select().from(receivedRecords).where(eq(receivedRecords.hiuHfr, hfr)).orderBy(desc(receivedRecords.receivedAt));
+    const me = c.get('user'); const hfr = me.hfrId ?? '';
+    const rows = await db.select().from(receivedRecords).where(and(eq(receivedRecords.hiuHfr, hfr), eq(receivedRecords.workspace, me.workspace))).orderBy(desc(receivedRecords.receivedAt));
     const notes = rows.length ? await db.select().from(recordAnnotations).where(inArray(recordAnnotations.receivedId, rows.map(x => x.id))) : [];
     return c.json({
       items: rows.map(x => ({ id: x.id, fromName: facilityName(x.fromHfr), receivedAt: x.receivedAt.toISOString(), annotations: notes.filter(n => n.receivedId === x.id).length, ...summary(JSON.parse(x.bundle) as FhirBundle) } satisfies ReceivedRecordItem)),
@@ -155,7 +156,7 @@ export function exchangeRoutes(ctx: AppCtx) {
   async function receivedFor(c: Parameters<typeof open>[0], action: string) {
     const user = c.get('user');
     const [row] = await db.select().from(receivedRecords).where(eq(receivedRecords.id, c.req.param('id') ?? '')).limit(1);
-    const ok = !!row && row.hiuHfr === user.hfrId;
+    const ok = !!row && row.hiuHfr === user.hfrId && row.workspace === user.workspace;
     await db.insert(accessLog).values({ userId: user.id, role: user.role, action, patientId: row?.patientId ?? null, outcome: ok ? 'allowed' : 'denied' });
     return ok ? row : null;
   }
@@ -188,13 +189,13 @@ export function exchangeRoutes(ctx: AppCtx) {
   r.post('/patients/:id/documents/:docId/push', requireUser('doctor', 'nurse'), async c => {
     const pid = patientIdParam.safeParse(c.req.param('id'));
     if (!pid.success || !(await open(c, pid.data, 'push-document'))) return c.json(NOT_FOUND, 404);
-    const [d] = await db.select().from(documents).where(and(eq(documents.id, c.req.param('docId') ?? ''), eq(documents.patientId, pid.data))).limit(1);
+    const [d] = await db.select().from(documents).where(and(eq(documents.id, c.req.param('docId') ?? ''), eq(documents.patientId, scope(pid.data, c.get('user').workspace)))).limit(1);
     if (!d) return c.json(NOT_FOUND, 404);
     if (d.syncStatus === 'pushed') return c.json({ error: 'invalid', message: 'This document has already been pushed.' }, 409);
     if (d.status !== 'done') return c.json({ error: 'invalid', message: 'This document has not been read yet.' }, 409);
     const waiting = await db.select({ id: observations.id }).from(observations).where(and(eq(observations.documentId, d.id), eq(observations.status, 'extracted')));
     if (waiting.length) return c.json({ error: 'invalid', message: `Review the ${waiting.length} value${waiting.length === 1 ? '' : 's'} read from this document first. Nothing unreviewed is pushed.` }, 409);
-    await db.insert(simCareContexts).values({ id: randomUUID(), patientId: pid.data, hipHfr: HOME_HFR, documentId: d.id, display: `${d.docType}, ${d.fileName}` });
+    await db.insert(simCareContexts).values({ id: randomUUID(), patientId: scope(pid.data, c.get('user').workspace), hipHfr: HOME_HFR, documentId: d.id, display: `${d.docType}, ${d.fileName}` });
     await db.update(documents).set({ syncStatus: 'pushed' }).where(eq(documents.id, d.id));
     return c.json({ ok: true });
   });

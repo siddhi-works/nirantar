@@ -25,17 +25,25 @@ export function UploadDialog({ patientId, onClose, patient }: { patientId: strin
     setFile(f); setErr('');
   };
 
+  const finish = (doc: Awaited<ReturnType<typeof api.uploadDocument>>) => {
+    if (doc.status === 'failed') { setErr(doc.error ?? 'This file could not be read.'); setBusy(false); return; }
+    toast(doc.values ? `${doc.values} value${doc.values === 1 ? '' : 's'} found. ${patient ? 'Your doctor will review them.' : 'Review them before they count.'}` : 'Uploaded. No values were found to read.');
+    onClose();
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!type) { setErr('Choose the document type first.'); return; }
     if (!file) { setErr('Choose a file to upload.'); return; }
     setBusy(true); setErr('');
-    try {
-      const doc = await api.uploadDocument(patientId, type, file);
-      if (doc.status === 'failed') { setErr(doc.error ?? 'This file could not be read.'); setBusy(false); return; }
-      toast(doc.values ? `${doc.values} value${doc.values === 1 ? '' : 's'} found. ${patient ? 'Your doctor will review them.' : 'Review them before they count.'}` : 'Uploaded. No values were found to read.');
-      onClose();
-    } catch (e2) { setErr(e2 instanceof Error ? e2.message : 'The upload did not go through.'); setBusy(false); }
+    try { finish(await api.uploadDocument(patientId, type, file)); }
+    catch (e2) { setErr(e2 instanceof Error ? e2.message : 'The upload did not go through.'); setBusy(false); }
+  };
+
+  const useSample = async () => {
+    setBusy(true); setErr('');
+    try { finish(await api.uploadSample(patientId)); }
+    catch (e2) { setErr(e2 instanceof Error ? e2.message : 'The sample could not be added.'); setBusy(false); }
   };
 
   return (
@@ -56,7 +64,10 @@ export function UploadDialog({ patientId, onClose, patient }: { patientId: strin
           </div>
           <input ref={input} type="file" accept=".pdf,image/jpeg,image/png" hidden onChange={e => pick(e.target.files?.[0])} />
           <input ref={camera} type="file" accept="image/jpeg,image/png" capture="environment" hidden aria-label="Scan with the camera" onChange={e => pick(e.target.files?.[0])} />
-          <Button type="button" variant="secondary" size="sm" onClick={() => camera.current?.click()} disabled={busy} icon={<Camera size={14} />}>Scan with the camera</Button>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <Button type="button" variant="secondary" size="sm" onClick={() => camera.current?.click()} disabled={busy} icon={<Camera size={14} />}>Scan with the camera</Button>
+            <Button type="button" variant="secondary" size="sm" onClick={useSample} disabled={busy} icon={<FileUp size={14} />}>Use the sample prescription</Button>
+          </div>
         </div>
         <p className="hint">The file is stored privately. Values found in it stay pending until {patient ? 'your doctor or nurse confirms them' : 'a doctor or nurse confirms them'}.</p>
         {err && <div className="error-text" role="alert">{err}</div>}

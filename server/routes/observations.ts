@@ -9,6 +9,7 @@ import { currentValue, originalText } from '../core/observations';
 import { NOT_FOUND, type AppCtx, type Env } from '../ctx';
 import { todayIST } from '../time';
 import { patientIdParam } from './patients';
+import { scope } from '../seed';
 
 const today = () => todayIST();
 const reasonSchema = z.string().trim().min(3).max(300);
@@ -44,7 +45,7 @@ export function observationRoutes(ctx: AppCtx) {
     const user = c.get('user');
     const groupId = randomUUID().slice(0, 8);
     const rows = checked.map(e => ({
-      id: randomUUID(), patientId: id.data, code: e.code,
+      id: randomUUID(), patientId: scope(id.data, user.workspace), code: e.code,
       valueNum: typeof e.value === 'number' ? e.value : null, valueText: typeof e.value === 'string' ? e.value : null,
       obsDate: body.data.date ?? today(), origin: 'entry', status: 'verified', groupId, byUserId: user.id, byLabel: user.name,
     }));
@@ -57,12 +58,13 @@ export function observationRoutes(ctx: AppCtx) {
     const id = patientIdParam.safeParse(c.req.param('id'));
     if (!id.success || !(await open(c, id.data, 'view-values'))) return c.json(NOT_FOUND, 404);
     const user = c.get('user');
-    let rows = await db.select().from(observations).where(eq(observations.patientId, id.data)).orderBy(asc(observations.createdAt));
+    const mineKey = scope(id.data, user.workspace);
+    let rows = await db.select().from(observations).where(eq(observations.patientId, mineKey)).orderBy(asc(observations.createdAt));
     if (user.role === 'patient') {
-      const mine = new Set((await db.select({ id: documents.id }).from(documents).where(and(eq(documents.patientId, id.data), eq(documents.byUserId, user.id)))).map(d => d.id));
+      const mine = new Set((await db.select({ id: documents.id }).from(documents).where(and(eq(documents.patientId, mineKey), eq(documents.byUserId, user.id)))).map(d => d.id));
       rows = rows.filter(o => o.documentId && mine.has(o.documentId));
     }
-    const versions = await db.select().from(observationVersions).where(eq(observationVersions.patientId, id.data)).orderBy(asc(observationVersions.id));
+    const versions = await db.select().from(observationVersions).where(eq(observationVersions.patientId, mineKey)).orderBy(asc(observationVersions.id));
     return c.json({
       items: rows.map(o => ({
         id: o.id, code: o.code, label: OBS_BY_CODE[o.code]?.label ?? o.code, unit: OBS_BY_CODE[o.code]?.unit ?? null,
@@ -92,9 +94,9 @@ export function observationRoutes(ctx: AppCtx) {
   async function change(c: Parameters<typeof open>[0], action: 'confirm' | 'correct' | 'reject' | 'edit') {
     const pid = patientIdParam.safeParse(c.req.param('id'));
     if (!pid.success || !(await open(c, pid.data, `${action}-value`))) return { res: c.json(NOT_FOUND, 404) };
-    const [o] = await db.select().from(observations).where(and(eq(observations.id, c.req.param('oid') ?? ''), eq(observations.patientId, pid.data))).limit(1);
+    const [o] = await db.select().from(observations).where(and(eq(observations.id, c.req.param('oid') ?? ''), eq(observations.patientId, scope(pid.data, c.get('user').workspace)))).limit(1);
     if (!o) return { res: c.json(NOT_FOUND, 404) };
-    return { o, pid: pid.data };
+    return { o, pid: scope(pid.data, c.get('user').workspace) }; // the tester's own key, used for what is written next
   }
 
   r.post('/patients/:id/observations/:oid/confirm', requireUser('doctor', 'nurse'), async c => {
@@ -140,12 +142,12 @@ export function observationRoutes(ctx: AppCtx) {
     const body = z.object({ value: z.union([z.string().max(60), z.number()]), reason: reasonSchema }).safeParse(await c.req.json().catch(() => null));
     if (!pid.success || !(await open(c, pid.data, 'correct-value'))) return c.json(NOT_FOUND, 404);
     if (!body.success) return c.json(bad('Give the corrected value and a short reason.'), 400);
-    const fact = buildRecall(pid.data, await opsFor(pid.data)).facts.find(f => f.id === c.req.param('factId') && f.source === 'his-import' && f.kind === 'observation');
+    const fact = buildRecall(pid.data, await opsFor(pid.data, c.get('user').workspace)).facts.find(f => f.id === c.req.param('factId') && f.source === 'his-import' && f.kind === 'observation');
     if (!fact || typeof fact.value !== 'number' || !OBS_BY_CODE[fact.code]) return c.json(bad('This value cannot be corrected here.'), 400);
     const res = checkValue(fact.code, body.data.value);
     if (!res.ok) return c.json(bad(res.error), 400);
     const user = c.get('user');
-    await db.insert(observationVersions).values({ patientId: pid.data, factId: fact.id, value: String(res.value), reason: body.data.reason, byUserId: user.id, byLabel: user.name });
+    await db.insert(observationVersions).values({ patientId: scope(pid.data, user.workspace), factId: fact.id, value: String(res.value), reason: body.data.reason, byUserId: user.id, byLabel: user.name });
     return c.json({ ok: true });
   });
 

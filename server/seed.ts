@@ -1,6 +1,7 @@
-import { eq } from 'drizzle-orm';
+import { randomBytes, randomUUID } from 'node:crypto';
 import type { Db } from './db/client';
-import { consents, patients, users } from './db/schema';
+import { eq, inArray, like, lt } from 'drizzle-orm';
+import { consents, documents, exchangeKeys, factVerifications, fileBlobs, observations, observationVersions, patients, receivedRecords, recordAnnotations, simCareContexts, simConsents, simTransfers, users, workspaces } from './db/schema';
 import { parseRecord } from './core/parse';
 
 export const FACILITY_HFR = 'IN2900011882';
@@ -27,4 +28,59 @@ export async function seed(db: Db): Promise<void> {
     const has = await db.select({ id: consents.id }).from(consents).where(eq(consents.patientId, p.id)).limit(1);
     if (!has.length) await db.insert(consents).values({ patientId: p.id, facilityHfr: FACILITY_HFR, purpose: 'treatment', source: 'dev-auto' });
   }
+}
+
+/* ───────── private sample spaces ─────────
+ * Everything a tester adds (uploads, corrections, confirmations, consent choices, received records) belongs to their
+ * workspace, tied to their browser. Two testers never see each other's changes, and "start fresh" is a new workspace.
+ */
+
+export const WORKSPACE_RE = /^[a-f0-9]{12}$/;
+export const newWorkspaceId = () => randomBytes(6).toString('hex');
+/** The key under which a patient's added data is stored inside a workspace. */
+export const scope = (patientId: string, ws: string) => `${patientId}~${ws}`;
+export const baseOf = (scoped: string) => scoped.split('~')[0];
+export const workspaceOf = (scoped: string) => scoped.split('~')[1] ?? '';
+
+const IDLE_DAYS = 14;
+
+/** Make sure a workspace exists and has the starting data: a request from the other hospital waiting for the first patient. */
+export async function ensureWorkspace(db: Db, ws: string): Promise<void> {
+  const known = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, ws)).limit(1);
+  if (known.length) { await db.update(workspaces).set({ seenAt: new Date() }).where(eq(workspaces.id, ws)); return; }
+  await db.insert(workspaces).values({ id: ws }).onConflictDoNothing();
+  const first = parseRecord().patients[0];
+  await db.insert(simConsents).values({
+    id: randomUUID(), patientId: scope(first.id, ws), abha: digits(first.abhaId), hiuHfr: OTHER_HFR, hiuUserId: DEV_DOCTOR_B.id,
+    hiuName: 'Civil Hospital, Lucknow', workspace: ws, purpose: 'Treatment', validityDays: 30, status: 'requested',
+  });
+  if (Math.random() < 0.1) await clearIdleWorkspaces(db); // housekeeping now and then, so the free database does not fill up
+}
+
+/** Remove every workspace nobody has touched for two weeks, with its uploads. Returns how many were cleared. */
+export async function clearIdleWorkspaces(db: Db, now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - IDLE_DAYS * 86_400_000);
+  const stale = await db.select({ id: workspaces.id }).from(workspaces).where(lt(workspaces.seenAt, cutoff)).limit(25);
+  for (const { id: ws } of stale) await removeWorkspace(db, ws);
+  return stale.length;
+}
+
+export async function removeWorkspace(db: Db, ws: string): Promise<void> {
+  const mine = `%~${ws}`;
+  const docs = await db.select({ id: documents.id }).from(documents).where(like(documents.patientId, mine));
+  if (docs.length) await db.delete(fileBlobs).where(inArray(fileBlobs.id, docs.map(d => d.id)));
+  const consentRows = await db.select({ id: simConsents.id }).from(simConsents).where(eq(simConsents.workspace, ws));
+  if (consentRows.length) {
+    const transfers = await db.select({ id: simTransfers.id }).from(simTransfers).where(inArray(simTransfers.consentId, consentRows.map(c => c.id)));
+    if (transfers.length) {
+      await db.delete(exchangeKeys).where(inArray(exchangeKeys.id, transfers.map(t => t.id)));
+      await db.delete(simTransfers).where(inArray(simTransfers.id, transfers.map(t => t.id)));
+    }
+  }
+  const received = await db.select({ id: receivedRecords.id }).from(receivedRecords).where(eq(receivedRecords.workspace, ws));
+  if (received.length) await db.delete(recordAnnotations).where(inArray(recordAnnotations.receivedId, received.map(r => r.id)));
+  await db.delete(receivedRecords).where(eq(receivedRecords.workspace, ws));
+  await db.delete(simConsents).where(eq(simConsents.workspace, ws));
+  for (const t of [documents, observations, observationVersions, factVerifications, simCareContexts]) await db.delete(t).where(like(t.patientId, mine));
+  await db.delete(workspaces).where(eq(workspaces.id, ws));
 }

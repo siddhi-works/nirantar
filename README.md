@@ -4,6 +4,14 @@ One evidence-linked diabetes record for the doctor, the nurse and the patient. E
 
 All names, ABHA numbers and values in the repository are synthetic.
 
+## For judges and testers
+
+- **Live site:** paste the production address here (the `your-project.vercel.app` form) before you submit.
+- **Start with the tour.** The sign-in page has a two-minute tour: look up a patient, see where a value came from, upload the sample prescription, then run the consent flow between two hospitals. The sign-in details are filled in already.
+- **Your changes are private.** Each browser gets its own sample space, so people testing at the same time never see each other's uploads or corrections. "Start with fresh sample data" in the top bar clears yours. Idle spaces are removed after 14 days.
+- **What is real and what is simulated** is listed below. The ABDM network is simulated and labelled as such on every screen.
+- **The code** is this repository, and `DEPLOY.md` explains how it was deployed.
+
 ## Run it
 
 ```bash

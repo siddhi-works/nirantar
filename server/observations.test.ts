@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { setup, P1_ABHA, type Harness } from './test-utils';
+import { setup, P1_ABHA, TEST_WS, type Harness } from './test-utils';
+import { scope } from './seed';
 import { observations, observationVersions } from './db/schema';
 
 let h: Harness;
@@ -78,7 +79,7 @@ describe('correcting a value read from a follow-up slip', () => {
 describe('values read from a document wait for a person', () => {
   const seedExtracted = async () => {
     const id = crypto.randomUUID();
-    await h.db.insert(observations).values({ id, patientId: 'P2', code: 'egfr', valueNum: 61, obsDate: '2026-11-03', origin: 'upload', documentId: 'doc-x', sourceText: 'eGFR 61 mL/min', status: 'extracted', byUserId: 'system', byLabel: 'Document reader' });
+    await h.db.insert(observations).values({ id, patientId: scope('P2', TEST_WS), code: 'egfr', valueNum: 61, obsDate: '2026-11-03', origin: 'upload', documentId: 'doc-x', sourceText: 'eGFR 61 mL/min', status: 'extracted', byUserId: 'system', byLabel: 'Document reader' });
     return id;
   };
 

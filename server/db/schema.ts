@@ -24,6 +24,8 @@ export const sessions = pgTable('sessions', {
   createdAt: ts('created_at').notNull().defaultNow(),
   expiresAt: ts('expires_at').notNull(),
   revokedAt: ts('revoked_at'),
+  /** The tester's private sample space. Everything people add is keyed to it, so testers never see each other's changes. */
+  workspace: text('workspace').notNull().default('main'),
 });
 
 export const patients = pgTable('patients', {
@@ -160,6 +162,7 @@ export const simConsents = pgTable('sim_consents', {
   hiuHfr: text('hiu_hfr').notNull(),
   hiuUserId: text('hiu_user_id').notNull(),
   hiuName: text('hiu_name').notNull(),
+  workspace: text('workspace').notNull().default('main'),
   purpose: text('purpose').notNull(),
   validityDays: integer('validity_days').notNull(),
   status: text('status').notNull(), // requested | granted | denied | revoked
@@ -195,6 +198,7 @@ export const receivedRecords = pgTable('received_records', {
   consentId: text('consent_id').notNull(),
   hiuHfr: text('hiu_hfr').notNull(),
   fromHfr: text('from_hfr').notNull(),
+  workspace: text('workspace').notNull().default('main'),
   bundle: text('bundle').notNull(), // FHIR JSON, decrypted on the receiving side
   receivedAt: ts('received_at').notNull().defaultNow(),
 }, t => [index('received_hiu').on(t.hiuHfr)]);
@@ -215,4 +219,11 @@ export const translations = pgTable('translations', {
   source: text('source').notNull(),
   translated: text('translated').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+/** One row per private sample space, so old ones can be cleared out. */
+export const workspaces = pgTable('workspaces', {
+  id: text('id').primaryKey(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  seenAt: ts('seen_at').notNull().defaultNow(),
 });

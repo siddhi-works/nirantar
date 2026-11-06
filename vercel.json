@@ -7,7 +7,7 @@
   "functions": {
     "api/**/*.ts": {
       "regions": [
-        "bom1"
+        "sin1"
       ],
       "includeFiles": "server/{assets/**,db/migrations/**,core/data/**}",
       "maxDuration": 60
