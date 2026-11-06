@@ -15,7 +15,7 @@ const credentialsSchema = z.object({
   hfrId: z.string().trim().max(40).optional(),
   abha: z.string().trim().max(40).optional(),
 });
-const verifySchema = credentialsSchema.extend({ otp: z.string().regex(/^\d{4,8}$/) });
+const verifySchema = credentialsSchema.extend({ otp: z.string().regex(/^\d{4,8}$/).optional() });
 
 export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
   const r = new Hono<Env>();
@@ -42,8 +42,8 @@ export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
       return c.json({ error: 'too_many_attempts' }, 429);
     }
 
-    // The code is always checked, even when the account does not exist, so both failures look and cost the same.
-    const codeOk = await auth.verifyOtp(creds, otp);
+    // When a code is required it is checked even if the account does not exist, so both failures look and cost the same.
+    const codeOk = !config.requireOtp || await auth.verifyOtp(creds, otp ?? '');
     const [user] = creds.role === 'patient'
       ? await db.select().from(users).where(and(eq(users.role, 'patient'), eq(users.abha, digits(creds.abha ?? '')))).limit(1)
       : await db.select().from(users).where(and(eq(users.role, creds.role), eq(users.hprId, creds.hprId ?? ''), eq(users.hfrId, creds.hfrId ?? ''))).limit(1);

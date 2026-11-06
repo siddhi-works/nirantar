@@ -3,6 +3,34 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 type App = { fetch: (req: Request) => Response | Promise<Response> };
 
 const BODYLESS = new Set(['GET', 'HEAD']);
+
+/**
+ * The real path of a request. A host can hand a catch-all function its internal route name with the matched part in
+ * a query string (/api/[...path]?path=auth%2Fme), or a path without the /api prefix. Rebuild /api/auth/me from either.
+ */
+export function realUrl(raw: string): string {
+  const u = new URL(raw, 'http://host.invalid');
+  const rewritten = u.searchParams.get('__p'); // set by the rewrite in vercel.json: the part of the path after /api/
+  if (rewritten !== null) {
+    u.pathname = `/api/${rewritten.replace(/^\/+/, '')}`;
+    u.searchParams.delete('__p');
+    return raw.startsWith('http') ? u.toString() : `${u.pathname}${u.search}`;
+  }
+  const matched = u.searchParams.get('path');
+  if (/^\/api\/\[\.\.\.\w+\]$/.test(u.pathname) || (matched !== null && u.pathname.startsWith('/api/['))) {
+    u.pathname = `/api/${(matched ?? '').replace(/^\/+/, '')}`;
+    u.searchParams.delete('path');
+  } else if (u.pathname !== '/api' && !u.pathname.startsWith('/api/')) {
+    u.pathname = `/api${u.pathname === '/' ? '' : u.pathname}`;
+  }
+  return raw.startsWith('http') ? u.toString() : `${u.pathname}${u.search}`;
+}
+
+function withRealUrl(request: Request): Request {
+  const fixed = realUrl(request.url);
+  if (fixed === request.url) return request;
+  return new Request(fixed, { method: request.method, headers: request.headers, body: BODYLESS.has(request.method) ? undefined : request.body, duplex: 'half' } as RequestInit);
+}
 const DROP = new Set(['content-length', 'transfer-encoding', 'connection']);
 
 async function readAll(req: IncomingMessage): Promise<Buffer> {
@@ -27,7 +55,7 @@ async function toRequest(req: IncomingMessage & { body?: unknown }): Promise<Req
     else if (typeof parsed === 'string') body = parsed;
     else body = JSON.stringify(parsed);
   }
-  return new Request(`${proto}://${host}${req.url ?? '/'}`, { method, headers, body });
+  return new Request(`${proto}://${host}${realUrl(req.url ?? '/')}`, { method, headers, body });
 }
 
 async function send(res: ServerResponse, out: Response): Promise<void> {
@@ -48,7 +76,7 @@ export function vercelHandler(boot: () => Promise<App>) {
   return async function handler(a: Request | IncomingMessage, b?: ServerResponse): Promise<Response | void> {
     try {
       const instance = await app();
-      if (b === undefined && typeof (a as Request).arrayBuffer === 'function') return await instance.fetch(a as Request);
+      if (b === undefined && typeof (a as Request).arrayBuffer === 'function') return await instance.fetch(withRealUrl(a as Request));
       await send(b!, await instance.fetch(await toRequest(a as IncomingMessage)));
     } catch (e) {
       console.error('request failed', e);

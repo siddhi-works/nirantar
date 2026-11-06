@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, HeartHandshake, KeyRound, ShieldCheck, Stethoscope, UserRound } from 'lucide-react';
+import { ArrowRight, HeartHandshake, ShieldCheck, Stethoscope, UserRound } from 'lucide-react';
 import { api } from '@/api';
 import { CREDENTIALS, FACILITY, OTHER_DOCTOR, OTHER_FACILITY } from '@/data/demo';
 import { formatAbha, useSession, type AppRole } from '@/session';
@@ -21,7 +21,7 @@ export default function Login() {
   const [role, setTab] = useState<AppRole>('doctor');
   const [vals, setVals] = useState({
     doctorId: CREDENTIALS.doctor.id, nurseId: CREDENTIALS.nurse.id, facility: FACILITY.hfr,
-    abha: CREDENTIALS.patient.abha, otp: CREDENTIALS.doctor.otp,
+    abha: CREDENTIALS.patient.abha,
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -32,8 +32,8 @@ export default function Login() {
     setErr(''); setBusy(true);
     try {
       const user = await api.verifyOtp(role === 'patient'
-        ? { role, abha: vals.abha, otp: vals.otp }
-        : { role, hprId: role === 'doctor' ? vals.doctorId : vals.nurseId, hfrId: vals.facility, otp: vals.otp });
+        ? { role, abha: vals.abha }
+        : { role, hprId: role === 'doctor' ? vals.doctorId : vals.nurseId, hfrId: vals.facility });
       if (role !== 'patient') setRole(role);
       login(user);
     } catch (e2) {
@@ -88,12 +88,10 @@ export default function Login() {
             <div className="field"><label htmlFor="abha">{t('ABHA number')}</label>
               <input id="abha" className="input" inputMode="numeric" value={vals.abha} onChange={e => set('abha', formatAbha(e.target.value))} /><span className="hint">{t('14-digit Ayushman Bharat Health Account number')}</span></div>
           )}
-          <div className="field"><label htmlFor="otp"><KeyRound size={13} style={{ verticalAlign: -2 }} /> {t('One-time password')}</label>
-            <input id="otp" className="input" inputMode="numeric" value={vals.otp} onChange={e => set('otp', e.target.value)} /><span className="hint">Sent to the mobile number linked to your {role === 'patient' ? 'ABHA' : 'HPR'} account</span></div>
 
-          <button className="btn login__go" disabled={busy}>{busy ? t('Verifying…') : <>{t('Verify and log in')} <ArrowRight size={16} /></>}</button>
+          <button className="btn login__go" disabled={busy}>{busy ? t('Signing in…') : <>{t('Log in')} <ArrowRight size={16} /></>}</button>
           {err && <div className="error-text" role="alert">{err}</div>}
-          <p className="hint" style={{ textAlign: 'center' }}>Test details are pre-filled. Just press the button.</p>
+          <p className="hint" style={{ textAlign: 'center' }}>Sample details are filled in. Just press the button.</p>
         </form>
 
         <details className="tour card">

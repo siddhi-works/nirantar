@@ -59,7 +59,7 @@ See `DEPLOY.md` for the Neon and Vercel steps.
 
 ## Configuration
 
-See `.env.example`. In production the server refuses to start with the fixed sign-in code unless `ALLOW_DEV_OTP=true` is set on purpose, because anyone who knows the code can then sign in. Keep `SARVAM_API_KEY` in the host's environment variables only; never give it a `VITE_` prefix, which would put it in the browser bundle.
+See `.env.example`. Sign-in needs no one-time code by default (sample data only). Set `REQUIRE_OTP=true` (plus `ALLOW_DEV_OTP=true` in production) to ask for the fixed code again.
 
 ## Layout
 

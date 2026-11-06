@@ -53,7 +53,7 @@ export function createApp(deps: Deps) {
   app.route('/', exchangeRoutes(ctx));
   app.route('/', languageRoutes(ctx));
 
-  app.notFound(c => c.json({ error: 'not_found' }, 404));
+  app.notFound(c => c.json({ error: 'not_found', path: c.req.path }, 404));
   app.onError((err, c) => {
     console.error(err);
     return c.json({ error: 'server_error' }, 500);

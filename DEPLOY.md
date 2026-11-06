@@ -29,12 +29,10 @@ Success prints: `Database ready: 5 users, 2 patients, 2 consents.` It is safe to
 | Name | Value |
 |---|---|
 | `DATABASE_URL` | the same Neon connection string |
-| `ALLOW_DEV_OTP` | `true` |
-| `DEV_OTP` | `482915` |
 | `SARVAM_API_KEY` | your Sarvam key (optional; scans, translation and speech need it) |
 | `VITE_FEEDBACK_URL` | link to your survey form (optional). It is read when the site is built, so redeploy after changing it |
 
-`ALLOW_DEV_OTP=true` is required: the API refuses to start in production with the fixed sign-in code unless you set it on purpose. Use it only while the data is synthetic.
+Sign-in needs no code: a person is let in by their sample HPR or ABHA number only. That is fine for synthetic data and not for real records.
 
 3. Deploy.
 
@@ -62,7 +60,7 @@ Judges and testers open the link on their own and cannot sign in to your Vercel 
 | What you see | Meaning and fix |
 |---|---|
 | `/api/health` says `"db":"not set up"` (503) | The tables are missing or the URL differs from step 2. Run `npm run db:setup` with the exact `DATABASE_URL` set in Vercel. |
-| `/api/health` says `{"error":"server_error"}` | Open Vercel, Logs. A missing `DATABASE_URL` or `ALLOW_DEV_OTP` is the usual cause. |
+| `/api/health` says `{"error":"server_error"}` | Open Vercel, Logs. A missing `DATABASE_URL` is the usual cause. |
 | `/api/health` is a 404 | The function did not deploy. Check the build log and that `api/[...path].ts` is in the repository. |
 | Sign-in works but every action says "forbidden" | The page and the API are on different addresses. Use the Vercel address, not a custom domain you have not added to the project. |
 | Scans fail with "reading service" | `SARVAM_API_KEY` is not set, or the adapter needs the live check below. |

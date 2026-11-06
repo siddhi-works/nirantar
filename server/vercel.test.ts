@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { readFileSync } from 'node:fs';
 import { setup, OTP, P1_ABHA } from './test-utils';
-import { vercelHandler } from './vercel';
+import { realUrl, vercelHandler } from './vercel';
 import { DEV_DOCTOR, FACILITY_HFR } from './seed';
 
 const PDF = new Uint8Array(readFileSync(new URL('./assets/originals/patient-1-followups.pdf', import.meta.url)));
@@ -88,5 +88,42 @@ describe('starting up', () => {
     expect(first.status).toBe(500);
     expect(JSON.stringify(await first.json())).not.toContain('database not reachable');
     expect(((await h(new Request('http://x.example/api/health'))) as Response).status).toBe(200);
+  });
+});
+
+describe('when the host names the route instead of the real path', () => {
+  it('rebuilds the real path from the route name and its query', () => {
+    expect(realUrl('/api/[...path]?path=auth%2Fotp%2Fverify')).toBe('/api/auth/otp/verify');
+    expect(realUrl('https://x.example/api/[...path]?path=patients%2FP1%2Frecall&a=1')).toBe('https://x.example/api/patients/P1/recall?a=1');
+    expect(realUrl('/api/[...path]')).toBe('/api/');
+  });
+  it('adds the /api prefix when the host removed it, and leaves a normal path alone', () => {
+    expect(realUrl('/auth/me')).toBe('/api/auth/me');
+    expect(realUrl('/health')).toBe('/api/health');
+    expect(realUrl('/api/auth/me')).toBe('/api/auth/me');
+    expect(realUrl('https://x.example/api/health?x=1')).toBe('https://x.example/api/health?x=1');
+  });
+
+  it('still answers sign-in and a signed-in request in all three presentations (web Request, Node request)', async () => {
+    const asWeb = async (url: string, init?: RequestInit) => (await handler(new Request(url, init))) as Response;
+    const w = await asWeb('https://x.example/api/[...path]?path=health');
+    expect(w.status).toBe(200);
+    const r = await asWeb('https://x.example/api/[...path]?path=auth%2Fotp%2Fverify', { method: 'POST', headers: { 'content-type': 'application/json', origin: 'https://x.example', host: 'x.example' }, body: JSON.stringify(login) });
+    expect(r.status).toBe(200);
+    const cookie = r.headers.getSetCookie()[0].split(';')[0];
+    expect((await asWeb('https://x.example/api/[...path]?path=auth%2Fme', { headers: { cookie } })).status).toBe(200);
+    // and as Node's request with the route name as its url
+    const base = await serve('none');
+    const viaNode = await fetch(`${base}/api/[...path]?path=health`);
+    expect(viaNode.status).toBe(200);
+  });
+});
+
+describe('realUrl with the rewrite in vercel.json', () => {
+  it('rebuilds the real path from the __p marker, keeping other query values', async () => {
+    const { realUrl } = await import('./vercel');
+    expect(realUrl('/api/index?__p=auth%2Fotp%2Fverify')).toBe('/api/auth/otp/verify');
+    expect(realUrl('/api/index?__p=patients%2FP1%2Frecall&x=1')).toBe('/api/patients/P1/recall?x=1');
+    expect(realUrl('/api/index?__p=')).toBe('/api/');
   });
 });

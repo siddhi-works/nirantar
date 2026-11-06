@@ -32,7 +32,7 @@ export interface OtpCredentials {
   hprId?: string;
   hfrId?: string;
   abha?: string;
-  otp: string;
+  otp?: string;
 }
 
 export interface LookupResult {

@@ -14,7 +14,8 @@
     "dev:api": "tsx watch server/dev.ts",
     "db:generate": "drizzle-kit generate",
     "sarvam:check": "tsx scripts/sarvam-check.ts",
-    "db:setup": "tsx scripts/db-setup.ts"
+    "db:setup": "tsx scripts/db-setup.ts",
+    "build:api": "node scripts/build-api.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.15",

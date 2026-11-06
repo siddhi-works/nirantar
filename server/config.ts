@@ -2,6 +2,8 @@ export interface Config {
   production: boolean;
   /** Fixed one-time code used by the dev AuthProvider. */
   devOtp: string;
+  /** Off by default: sample sign-in needs only the identity. Set REQUIRE_OTP=true to check the fixed code again. */
+  requireOtp: boolean;
   sessionHours: number;
   secureCookies: boolean;
   databaseUrl?: string;
@@ -18,12 +20,14 @@ type Env = Record<string, string | undefined>;
  */
 export function loadConfig(env: Env = process.env): Config {
   const production = env.NODE_ENV === 'production' || env.VERCEL_ENV === 'production';
-  if (production && env.ALLOW_DEV_OTP !== 'true') {
+  const requireOtp = env.REQUIRE_OTP === 'true';
+  if (production && requireOtp && env.ALLOW_DEV_OTP !== 'true') {
     throw new Error('Refusing to start: the dev sign-in code is not allowed in production. Set ALLOW_DEV_OTP=true only for synthetic data.');
   }
   return {
     production,
     devOtp: env.DEV_OTP ?? '482915',
+    requireOtp,
     sessionHours: Number(env.SESSION_HOURS ?? 8),
     secureCookies: production || env.VERCEL === '1',
     databaseUrl: env.DATABASE_URL || undefined,

@@ -32,7 +32,7 @@ const patient = (abha: string) => signIn({ role: 'patient', abha });
 beforeAll(async () => {
   db = await createDb();
   await seed(db);
-  app = createApp({ db, config: loadConfig({ DEV_OTP: OTP }), auth: new DevAuthProvider(OTP) });
+  app = createApp({ db, config: loadConfig({ DEV_OTP: OTP, REQUIRE_OTP: 'true' }), auth: new DevAuthProvider(OTP) });
 }, 60_000);
 
 describe('sign-in', () => {
@@ -166,7 +166,8 @@ describe('confirming a value', () => {
 
 describe('configuration', () => {
   it('refuses to start in production with the dev code unless it is allowed on purpose', () => {
-    expect(() => loadConfig({ NODE_ENV: 'production' })).toThrow(/dev sign-in code/);
-    expect(() => loadConfig({ NODE_ENV: 'production', ALLOW_DEV_OTP: 'true' })).not.toThrow();
+    expect(() => loadConfig({ NODE_ENV: 'production', REQUIRE_OTP: 'true' })).toThrow(/dev sign-in code/);
+    expect(() => loadConfig({ NODE_ENV: 'production', REQUIRE_OTP: 'true', ALLOW_DEV_OTP: 'true' })).not.toThrow();
+    expect(() => loadConfig({ NODE_ENV: 'production' })).not.toThrow(); // no code is asked for by default
   });
 });

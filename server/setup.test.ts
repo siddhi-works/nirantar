@@ -25,4 +25,13 @@ describe('database setup', () => {
     expect(loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', ALLOW_DEV_OTP: 'true' }).setupOnStart).toBe(false);
     expect(loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', ALLOW_DEV_OTP: 'true', SETUP_ON_START: 'true' }).setupOnStart).toBe(true);
   });
+
+  it('signs a known person in without a code by default, and still refuses an unknown one', async () => {
+    const db = await createDb();
+    await seed(db);
+    const app = createApp({ db, config: loadConfig({}), auth: new DevAuthProvider('482915') });
+    const post = (body: unknown) => app.request('/api/auth/otp/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    expect((await post({ role: 'doctor', hprId: '71-3304-9082-1176', hfrId: 'IN2900011882' })).status).toBe(200);
+    expect((await post({ role: 'doctor', hprId: '00-0000-0000-0000', hfrId: 'IN2900011882' })).status).toBe(401);
+  });
 });

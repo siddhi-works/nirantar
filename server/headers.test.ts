@@ -27,11 +27,11 @@ describe('headers sent with every page', () => {
     expect(header('X-Robots-Tag')).toContain('noindex');
   });
   it('gives the function a time limit long enough for a slow scan to be read', () => {
-    expect(vercel.functions['api/**/*.ts'].maxDuration).toBe(60);
+    expect(vercel.functions['api/index.js'].maxDuration).toBe(60);
   });
-  it('runs the API as one catch-all function in a single region next to the database, with the folders it reads at run time', () => {
-    expect(vercel.rewrites).toBeUndefined();
-    const fn = vercel.functions['api/**/*.ts'];
+  it('runs the API as one bundled function behind a rewrite in a single region next to the database, with the folders it reads at run time', () => {
+    expect(vercel.rewrites).toEqual([{ source: '/api/:path*', destination: '/api/index?__p=:path*' }]);
+    const fn = vercel.functions['api/index.js'];
     expect(fn.regions).toHaveLength(1); // one region, chosen to sit next to the database (see DEPLOY.md)
     expect(fn.includeFiles).toContain('db/migrations');
     expect(fn.includeFiles).toContain('assets');
