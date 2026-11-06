@@ -5,6 +5,8 @@ export interface Config {
   sessionHours: number;
   secureCookies: boolean;
   databaseUrl?: string;
+  /** Create the tables and seed on start. On a hosted database this is one deliberate command (npm run db:setup), not every cold start. */
+  setupOnStart: boolean;
 }
 
 type Env = Record<string, string | undefined>;
@@ -25,5 +27,6 @@ export function loadConfig(env: Env = process.env): Config {
     sessionHours: Number(env.SESSION_HOURS ?? 8),
     secureCookies: production || env.VERCEL === '1',
     databaseUrl: env.DATABASE_URL || undefined,
+    setupOnStart: !env.DATABASE_URL || env.SETUP_ON_START === 'true',
   };
 }

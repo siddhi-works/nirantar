@@ -4,23 +4,18 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api"
-    }
-  ],
   "functions": {
-    "api/index.ts": {
+    "api/**/*.ts": {
       "regions": [
         "bom1"
       ],
-      "includeFiles": "server/{assets/**,db/migrations/**,core/data/**}"
+      "includeFiles": "server/{assets/**,db/migrations/**,core/data/**}",
+      "maxDuration": 60
     }
   },
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -41,6 +36,35 @@
         {
           "key": "Permissions-Policy",
           "value": "geolocation=(), microphone=()"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'none'"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
         }
       ]
     },

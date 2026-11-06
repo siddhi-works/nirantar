@@ -13,11 +13,14 @@ export const bcpOf = (l: Lang) => LANGS.find(x => x.code === l)!.bcp;
 const KEY = 'nirantar-lang';
 const stored = (): Lang => { try { const v = localStorage.getItem(KEY); return v === 'hi' ? 'hi' : 'en'; } catch { return 'en'; } };
 
+const applyLang = (l: Lang) => { try { document.documentElement.lang = l; } catch { /* no document, nothing to set */ } };
+
 interface LangState { lang: Lang; setLang: (l: Lang) => void; tick: number }
 export const useLang = create<LangState>(set => ({
   lang: stored(), tick: 0,
-  setLang: lang => { try { localStorage.setItem(KEY, lang); } catch { /* a remembered choice is a convenience only */ } set({ lang }); },
+  setLang: lang => { try { localStorage.setItem(KEY, lang); } catch { /* a remembered choice is a convenience only */ } applyLang(lang); set({ lang }); },
 }));
+applyLang(stored());
 
 type Vars = Record<string, string | number>;
 const fill = (s: string, vars?: Vars) => s.replace(/\{(\w+)\}/g, (_, k) => String(vars?.[k] ?? ''));

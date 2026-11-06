@@ -69,7 +69,7 @@ describe('uploading a document', () => {
     const r = await h.get(`/documents/${doc.id}/file`, nurse);
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type')).toBe('application/pdf');
-    expect(r.headers.get('content-security-policy')).toMatch(/sandbox/);
+    expect(r.headers.get('content-security-policy')).toBeNull(); // a policy on a PDF would block the browser's PDF viewer
     expect(new Uint8Array(await r.arrayBuffer()).length).toBe(P2_PDF.length);
     expect((await h.get(`/documents/${doc.id}/file`)).status).toBe(401);
     expect((await h.get(`/documents/${doc.id}/file`, await h.patient(P1_ABHA))).status).toBe(404);
@@ -100,6 +100,14 @@ describe('uploading a document', () => {
 });
 
 describe('scans and photos', () => {
+  it('are served back under a strict sandbox policy', async () => {
+    const nurse = await h.nurse();
+    const doc = await (await h.upload('P1', PNG, 'shown-back.png', TYPE, nurse)).json();
+    const r = await h.get(`/documents/${doc.id}/file`, nurse);
+    expect(r.headers.get('content-type')).toBe('image/png');
+    expect(r.headers.get('content-security-policy')).toMatch(/sandbox/);
+  });
+
   it('are read by the reading service when it is connected', async () => {
     const doc = await (await h.upload('P1', PNG, 'photo.png', TYPE, await h.nurse())).json();
     expect(doc).toMatchObject({ status: 'done', method: 'ocr' });

@@ -75,7 +75,10 @@ export function documentRoutes(ctx: AppCtx) {
     const d = await docFor(c, 'view-uploaded-file');
     const bytes = d ? await files.get(d.id) : null;
     if (!d || !bytes) return c.json(NOT_FOUND, 404);
-    return new Response(bytes as BodyInit, { headers: { 'Content-Type': d.mime, 'Content-Disposition': 'inline', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox" } });
+    // A PDF is shown by the browser's own viewer, which a sandbox policy would block. Anything else gets the strict policy.
+    const headers: Record<string, string> = { 'Content-Type': d.mime, 'Content-Disposition': 'inline', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
+    if (d.mime !== 'application/pdf') headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox";
+    return new Response(bytes as BodyInit, { headers });
   });
 
   return r;

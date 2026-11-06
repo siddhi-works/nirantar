@@ -9,7 +9,7 @@ import { ValueField } from '@/ui/ValueForms';
 const GROUPS: Record<string, string> = { glycaemic: 'Blood sugar', kidney: 'Kidney', lipid: 'Lipids', liver: 'Liver', exam: 'Examinations', screening: 'Screening', vitals: 'Vitals' };
 // Blood pressure is entered as a pair in the vitals form, so it is not offered one number at a time.
 const OFFERED = OBS_DEFS.filter(d => d.code !== 'sbp' && d.code !== 'dbp');
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString('en-CA'); // the person's own calendar date, not UTC
 
 /** Record one result that came from an examination or a lab report. Staff are the source, so it counts at once. */
 export function RecordDialog({ patientId, onClose }: { patientId: string; onClose: () => void }) {

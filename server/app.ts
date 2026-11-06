@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { makeCtx, type Deps, type Env } from './ctx';
+import { users } from './db/schema';
 import { authRoutes } from './routes/auth';
 import { patientRoutes } from './routes/patients';
 import { observationRoutes } from './routes/observations';
@@ -39,7 +40,12 @@ export function createApp(deps: Deps) {
     await next();
   });
 
-  app.get('/health', c => c.json({ ok: true, auth: deps.auth.name }));
+  app.get('/health', async c => {
+    // Says plainly whether the database has been set up, so a first deploy can be checked in one request.
+    let db: 'ready' | 'not set up' = 'ready';
+    try { await deps.db.select({ id: users.id }).from(users).limit(1); } catch { db = 'not set up'; }
+    return c.json({ ok: db === 'ready', auth: deps.auth.name, db }, db === 'ready' ? 200 : 503);
+  });
   app.route('/', authRoutes(ctx));
   app.route('/', patientRoutes(ctx));
   app.route('/', observationRoutes(ctx));

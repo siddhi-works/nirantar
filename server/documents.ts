@@ -6,8 +6,9 @@ import type { FileStore } from './files';
 import { pdfPages, MIN_TEXT } from './extract/text';
 import { extractValues } from './extract/values';
 import { OcrUnavailable, type OcrProvider } from './ocr/provider';
+import { todayIST } from './time';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayIST();
 
 export const NEEDS_OCR_MESSAGE = 'This file is a scan or a photo, and reading it needs the document reading service, which is not connected. A PDF with selectable text can be read without it.';
 

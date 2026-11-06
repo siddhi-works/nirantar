@@ -7,9 +7,10 @@ import { documents, observations, observationVersions } from '../db/schema';
 import { buildRecall } from '../core/engine';
 import { currentValue, originalText } from '../core/observations';
 import { NOT_FOUND, type AppCtx, type Env } from '../ctx';
+import { todayIST } from '../time';
 import { patientIdParam } from './patients';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayIST();
 const reasonSchema = z.string().trim().min(3).max(300);
 
 export function observationRoutes(ctx: AppCtx) {

@@ -45,6 +45,10 @@ SARVAM_API_KEY=... npm run sarvam:check -- translate "Your blood sugar is under 
 SARVAM_API_KEY=... npm run sarvam:check -- speak "Your blood sugar is under control."
 ```
 
+## Deploying
+
+See `DEPLOY.md` for the Neon and Vercel steps.
+
 ## Configuration
 
 See `.env.example`. In production the server refuses to start with the fixed sign-in code unless `ALLOW_DEV_OTP=true` is set on purpose, because anyone who knows the code can then sign in. Keep `SARVAM_API_KEY` in the host's environment variables only; never give it a `VITE_` prefix, which would put it in the browser bundle.
