@@ -21,7 +21,7 @@ npm run test       # 130 tests
 npm run typecheck
 ```
 
-Local development needs no database and no keys: it uses an embedded Postgres (a folder, `.data/`) and a fixed sign-in code. Sign-in details are pre-filled on the login screen. Hospital B (Civil Hospital, Lucknow) is the "Sign in as a doctor at another hospital" link.
+Local development needs no database and no keys: it uses an embedded Postgres (a folder, `.data/`) and a fixed sign-in code. Sign-in details are pre-filled on the login screen. Hospital B (Patna Medical College & Hospital, Patna) is the "Sign in as a doctor at another hospital" link.
 
 ## What it does
 

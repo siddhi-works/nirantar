@@ -214,3 +214,12 @@ h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; letter-spac
   .login__card { animation: settle .35s var(--ease) both; }
   @keyframes settle { from { opacity: 0; transform: translateY(6px); } }
 }
+
+/* submission footer, on every page */
+.site-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 0; padding: 18px 16px 64px; background: var(--navy); color: #DCEBEA; font-size: 13px; text-align: center; }
+.site-foot span + span::before { content: '|'; margin: 0 12px; color: #7FA6A2; }
+@media (max-width: 640px) { .site-foot { flex-direction: column; gap: 2px; } .site-foot span + span::before { content: none; } }
+
+.site-foot { display: block; } .site-foot p { margin: 0 auto; max-width: 1100px; } .site-foot span + span::before { content: none; }
+
+.site-foot { padding-bottom: 22px; }

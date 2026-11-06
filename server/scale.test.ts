@@ -19,7 +19,7 @@ describe('a hospital with one lakh registered patients', () => {
         const i = from + k;
         return {
           id: `R${i.toString(16).padStart(8, '0')}`, workspace: ws, hfrId: FACILITY_HFR, abha: abhaOf(i), abhaSource: 'created', name: `Patient ${String(i).padStart(6, '0')}`,
-          age: 30 + (i % 50), sex: 'F', phone: '9876500000', verifiedAt: NOW, verifyMethod: 'mobile-otp', consentPurposes: 'create-record,abha-link', consentVersion: 'v1', consentMode: 'in-person-verbal', consentAt: NOW, byUserId: 'u-doc-1', byLabel: 'Dr. Meenakshi Srivastava',
+          age: 30 + (i % 50), sex: 'F', phone: '9876500000', verifiedAt: NOW, verifyMethod: 'mobile-otp', consentPurposes: 'create-record,abha-link', consentVersion: 'v1', consentMode: 'in-person-verbal', consentAt: NOW, byUserId: 'u-doc-1', byLabel: 'Dr. Swati Mani',
         };
       }));
     }

@@ -61,7 +61,7 @@ type RawPatient = { patient_id: string; name: string; age: number; sex: 'M' | 'F
 /** Mock Indian names replace the workbook's placeholder names everywhere (slip headers, summaries, doctors). */
 const NAME_MAP: [string, string][] = [
   ['Mrs. Dummy 2', 'Mrs. Savitri Devi Pandey'], ['Mr. Dummy 1', 'Mr. Rajesh Kumar Singh'],
-  ['Dr. ABC', 'Dr. Meenakshi Srivastava'], ['Dr. XYZ', 'Dr. Arvind Sinha'],
+  ['Dr. ABC', 'Dr. Swati Mani'], ['Dr. XYZ', 'Dr. Arvind Sinha'],
 ];
 const localised = NAME_MAP.reduce((acc, [a, b]) => acc.split(a).join(b), JSON.stringify(raw));
 

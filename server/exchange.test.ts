@@ -30,7 +30,7 @@ describe('a second hospital asks for a record', () => {
     expect(await real.json()).toEqual(await nobody.json());
     const list = await mineB(b);
     expect(list).toHaveLength(2);
-    expect(list.every(x => x.status === 'requested' && x.hiuName === 'Civil Hospital, Lucknow' && x.receivedId === null)).toBe(true);
+    expect(list.every(x => x.status === 'requested' && x.hiuName === 'Patna Medical College & Hospital, Patna' && x.receivedId === null)).toBe(true);
     expect(JSON.stringify(list)).not.toMatch(/Rajesh|Singh/); // no name before the patient agrees
   });
 
@@ -56,7 +56,7 @@ describe('the patient decides', () => {
   it('sees only their own requests', async () => {
     const mine = await patientList(await h.patient(P1_ABHA));
     expect(mine).toHaveLength(1);
-    expect(mine[0]).toMatchObject({ status: 'requested', hiuName: 'Civil Hospital, Lucknow', purpose: 'Treatment' });
+    expect(mine[0]).toMatchObject({ status: 'requested', hiuName: 'Patna Medical College & Hospital, Patna', purpose: 'Treatment' });
     expect(await patientList(await h.patient(P2_ABHA))).toHaveLength(0);
   });
 
@@ -84,7 +84,7 @@ describe('the encrypted transfer', () => {
     expect(r.status).toBe(201);
     receivedId = (await r.json()).receivedId;
     const view = await (await h.get(`/exchange/received/${receivedId}`, b)).json();
-    expect(view.fromName).toBe('District Hospital, Gorakhpur');
+    expect(view.fromName).toBe('All India Institute of Medical Sciences, Gorakhpur');
     expect(view.bundle).toMatchObject({ resourceType: 'Bundle', type: 'document' });
     const types = view.bundle.entry.map((e: { resource: { resourceType: string } }) => e.resource.resourceType);
     expect(types[0]).toBe('Composition');
@@ -119,7 +119,7 @@ describe('the encrypted transfer', () => {
     expect((await h.post(`/exchange/received/${receivedId}/annotations`, { text: 'not mine to add' }, await h.doctor())).status).toBe(404);
     const after = await (await h.get(`/exchange/received/${receivedId}`, b)).json();
     expect(after.bundle).toEqual(before);
-    expect(after.annotations).toMatchObject([{ text: 'Checked against our own HbA1c today', by: 'Dr. Rohit Verma' }]);
+    expect(after.annotations).toMatchObject([{ text: 'Checked against our own HbA1c today', by: 'Dr. Pratayaksha' }]);
     expect((await h.req('PUT', `/exchange/received/${receivedId}`, { bundle: {} }, b)).status).toBe(404);
   });
 

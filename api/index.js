@@ -55198,7 +55198,7 @@ function cite(doc, field, sub, opts = {}) {
 var NAME_MAP = [
   ["Mrs. Dummy 2", "Mrs. Savitri Devi Pandey"],
   ["Mr. Dummy 1", "Mr. Rajesh Kumar Singh"],
-  ["Dr. ABC", "Dr. Meenakshi Srivastava"],
+  ["Dr. ABC", "Dr. Swati Mani"],
   ["Dr. XYZ", "Dr. Arvind Sinha"]
 ];
 var localised = NAME_MAP.reduce((acc, [a3, b3]) => acc.split(a3).join(b3), JSON.stringify(his_default));
@@ -55503,16 +55503,17 @@ import { randomBytes as randomBytes2 } from "node:crypto";
 var FACILITY_HFR = "IN2900011882";
 var HOME_HFR = FACILITY_HFR;
 var OTHER_HFR = "IN0900022991";
-var DEV_DOCTOR_B = { id: "u-doc-2", hprId: "71-6100-2255-3094", name: "Dr. Rohit Verma", line: "Reg. 41207 \xB7 General Medicine" };
-var DEV_DOCTOR = { id: "u-doc-1", hprId: "71-3304-9082-1176", name: "Dr. Meenakshi Srivastava", line: "Reg. 98761 \xB7 General Medicine" };
+var DEV_DOCTOR_B = { id: "u-doc-2", hprId: "71-6100-2255-3094", name: "Dr. Pratayaksha", line: "Doctor" };
+var DEV_DOCTOR = { id: "u-doc-1", hprId: "71-3304-9082-1176", name: "Dr. Swati Mani", line: "Doctor" };
 var DEV_NURSE = { id: "u-nur-1", hprId: "71-5521-0044-8730", name: "Sr. Kavita Mishra", line: "Staff Nurse \xB7 OPD 3" };
 var digits = (s2) => s2.replace(/\D/g, "");
 async function seed(db) {
-  await db.insert(users).values([
+  const staff = [
     { id: DEV_DOCTOR.id, role: "doctor", name: DEV_DOCTOR.name, line: DEV_DOCTOR.line, hprId: DEV_DOCTOR.hprId, hfrId: FACILITY_HFR },
     { id: DEV_DOCTOR_B.id, role: "doctor", name: DEV_DOCTOR_B.name, line: DEV_DOCTOR_B.line, hprId: DEV_DOCTOR_B.hprId, hfrId: OTHER_HFR },
     { id: DEV_NURSE.id, role: "nurse", name: DEV_NURSE.name, line: DEV_NURSE.line, hprId: DEV_NURSE.hprId, hfrId: FACILITY_HFR }
-  ]).onConflictDoNothing();
+  ];
+  for (const s2 of staff) await db.insert(users).values(s2).onConflictDoUpdate({ target: users.id, set: { name: s2.name, line: s2.line } });
   for (const p3 of parseRecord().patients) {
     const abha = digits(p3.abhaId);
     await db.insert(patients).values({ id: p3.id, abha }).onConflictDoNothing();
@@ -77486,8 +77487,8 @@ function buildRegisteredBundle(p3, rows, hip, at2 = /* @__PURE__ */ new Date(), 
 
 // server/sim/facilities.ts
 var FACILITIES = {
-  IN2900011882: "District Hospital, Gorakhpur",
-  IN0900022991: "Civil Hospital, Lucknow"
+  IN2900011882: "All India Institute of Medical Sciences, Gorakhpur",
+  IN0900022991: "Patna Medical College & Hospital, Patna"
 };
 var facilityName = (hfr) => FACILITIES[hfr] ?? hfr;
 

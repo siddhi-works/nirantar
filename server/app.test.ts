@@ -41,7 +41,7 @@ describe('sign-in', () => {
     expect(r.status).toBe(200);
     expect(r.headers.get('set-cookie')).toMatch(/HttpOnly/i);
     expect(r.headers.get('set-cookie')).toMatch(/SameSite=Lax/i);
-    expect((await r.json()).user.name).toBe('Dr. Meenakshi Srivastava');
+    expect((await r.json()).user.name).toBe('Dr. Swati Mani');
   });
 
   it('stores only a hash of the token, never the token', async () => {

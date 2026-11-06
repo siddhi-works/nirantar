@@ -7,19 +7,21 @@ import { parseRecord } from './core/parse';
 export const FACILITY_HFR = 'IN2900011882';
 export const HOME_HFR = FACILITY_HFR; // the hospital that holds both patients' records
 export const OTHER_HFR = 'IN0900022991';
-export const DEV_DOCTOR_B = { id: 'u-doc-2', hprId: '71-6100-2255-3094', name: 'Dr. Rohit Verma', line: 'Reg. 41207 · General Medicine' };
-export const DEV_DOCTOR = { id: 'u-doc-1', hprId: '71-3304-9082-1176', name: 'Dr. Meenakshi Srivastava', line: 'Reg. 98761 · General Medicine' };
+export const DEV_DOCTOR_B = { id: 'u-doc-2', hprId: '71-6100-2255-3094', name: 'Dr. Pratayaksha', line: 'Doctor' };
+export const DEV_DOCTOR = { id: 'u-doc-1', hprId: '71-3304-9082-1176', name: 'Dr. Swati Mani', line: 'Doctor' };
 export const DEV_NURSE = { id: 'u-nur-1', hprId: '71-5521-0044-8730', name: 'Sr. Kavita Mishra', line: 'Staff Nurse · OPD 3' };
 
 const digits = (s: string) => s.replace(/\D/g, '');
 
 /** Idempotent. Creates the two staff users, the two patients and their sign-in accounts, and dev-granted consents. */
 export async function seed(db: Db): Promise<void> {
-  await db.insert(users).values([
-    { id: DEV_DOCTOR.id, role: 'doctor', name: DEV_DOCTOR.name, line: DEV_DOCTOR.line, hprId: DEV_DOCTOR.hprId, hfrId: FACILITY_HFR },
-    { id: DEV_DOCTOR_B.id, role: 'doctor', name: DEV_DOCTOR_B.name, line: DEV_DOCTOR_B.line, hprId: DEV_DOCTOR_B.hprId, hfrId: OTHER_HFR },
-    { id: DEV_NURSE.id, role: 'nurse', name: DEV_NURSE.name, line: DEV_NURSE.line, hprId: DEV_NURSE.hprId, hfrId: FACILITY_HFR },
-  ]).onConflictDoNothing();
+  const staff = [
+    { id: DEV_DOCTOR.id, role: 'doctor' as const, name: DEV_DOCTOR.name, line: DEV_DOCTOR.line, hprId: DEV_DOCTOR.hprId, hfrId: FACILITY_HFR },
+    { id: DEV_DOCTOR_B.id, role: 'doctor' as const, name: DEV_DOCTOR_B.name, line: DEV_DOCTOR_B.line, hprId: DEV_DOCTOR_B.hprId, hfrId: OTHER_HFR },
+    { id: DEV_NURSE.id, role: 'nurse' as const, name: DEV_NURSE.name, line: DEV_NURSE.line, hprId: DEV_NURSE.hprId, hfrId: FACILITY_HFR },
+  ];
+  // Insert, and refresh the name and line of an existing row, so a renamed sample person shows up on a database that already has them.
+  for (const s of staff) await db.insert(users).values(s).onConflictDoUpdate({ target: users.id, set: { name: s.name, line: s.line } });
 
   for (const p of parseRecord().patients) {
     const abha = digits(p.abhaId);

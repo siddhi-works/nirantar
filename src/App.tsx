@@ -18,6 +18,7 @@ export default function App() {
   return (
     <>
       <ErrorBoundary>{!user ? <Login /> : user.role === 'doctor' ? <DoctorHome /> : user.role === 'nurse' ? <NurseHome /> : isRegisteredId(user.patientId) ? <RegisteredPatientHome /> : <PatientHome />}</ErrorBoundary>
+      <footer className="site-foot"><p>Health-a-thon Round 2 Submission | Centre for AI and Medical Technology, India (CAMT INDIA) | Team ID 61GBBZ</p></footer>
       <SourcePanel />
       <Toasts />
       <footer className="simbanner"><span className="simbanner__long">ABDM sandbox simulator · not connected to the live ABDM network</span><span className="simbanner__short">ABDM simulator · not live</span></footer>

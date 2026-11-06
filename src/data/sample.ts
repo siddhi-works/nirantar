@@ -19,19 +19,19 @@ export const STAFF_NOTES: SampleNote[] = [
 ];
 
 export const SHIFTS: SampleShift[] = [
-  { who: 'Dr. Meenakshi Srivastava', role: 'General Medicine', hours: '9:00 am – 1:00 pm', room: 'Room 4' },
+  { who: 'Dr. Swati Mani', role: 'General Medicine', hours: '9:00 am – 1:00 pm', room: 'Room 4' },
   { who: 'Dr. Arvind Nair', role: 'General Medicine', hours: '2:00 pm – 5:00 pm', room: 'Room 4' },
   { who: 'Nurse Kavita Yadav', role: 'OPD nursing', hours: '8:30 am – 4:30 pm', room: 'Triage desk' },
   { who: 'Lab counter', role: 'Pathology', hours: '8:00 am – 3:00 pm', room: 'Ground floor' },
 ];
 
 export const APPOINTMENTS: SampleSlot[] = [
-  { id: 'a1', time: at(0, 9, 30), name: 'Ramesh Chandra Gupta', reason: 'Follow-up visit', with: 'Dr. Srivastava' },
-  { id: 'a2', time: at(0, 10, 0), name: 'Sunita Kumari Verma', reason: 'Follow-up visit', with: 'Dr. Srivastava' },
-  { id: 'a3', time: at(0, 10, 30), name: 'Mohammed Irfan Ansari', reason: 'Prescription refill', with: 'Dr. Srivastava' },
-  { id: 'a4', time: at(0, 11, 15), name: 'Lata Devi Mishra', reason: 'Report review', with: 'Dr. Srivastava' },
+  { id: 'a1', time: at(0, 9, 30), name: 'Ramesh Chandra Gupta', reason: 'Follow-up visit', with: 'Dr. Mani' },
+  { id: 'a2', time: at(0, 10, 0), name: 'Sunita Kumari Verma', reason: 'Follow-up visit', with: 'Dr. Mani' },
+  { id: 'a3', time: at(0, 10, 30), name: 'Mohammed Irfan Ansari', reason: 'Prescription refill', with: 'Dr. Mani' },
+  { id: 'a4', time: at(0, 11, 15), name: 'Lata Devi Mishra', reason: 'Report review', with: 'Dr. Mani' },
   { id: 'a5', time: at(0, 14, 15), name: 'Harish Prasad Tiwari', reason: 'Follow-up visit', with: 'Dr. Nair' },
-  { id: 'a6', time: at(1, 9, 45), name: 'Geeta Rani Pathak', reason: 'First visit', with: 'Dr. Srivastava' },
+  { id: 'a6', time: at(1, 9, 45), name: 'Geeta Rani Pathak', reason: 'First visit', with: 'Dr. Mani' },
 ];
 
 export const PATIENT_NOTES: SampleNote[] = [
@@ -40,4 +40,4 @@ export const PATIENT_NOTES: SampleNote[] = [
   { id: 'p3', title: 'Clinic timing', text: 'The OPD at your hospital is open from 9 am to 5 pm, Monday to Saturday.', when: at(-2, 12, 0), tone: 'info' },
 ];
 
-export const PATIENT_APPOINTMENT = { when: at(14, 10, 30), with: 'Dr. Meenakshi Srivastava', where: 'OPD Room 4', note: 'Fasting for 8 hours before the visit if blood tests are planned.' };
+export const PATIENT_APPOINTMENT = { when: at(14, 10, 30), with: 'Dr. Swati Mani', where: 'OPD Room 4', note: 'Fasting for 8 hours before the visit if blood tests are planned.' };

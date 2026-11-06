@@ -58,7 +58,7 @@ describe('correcting a value read from a follow-up slip', () => {
     expect(hb2.latest.citation.quote).toBe(quote); // the slip text is untouched
     const fact = after.facts.find((f: { id: string }) => f.id === hb.latest.factId);
     expect(fact.detail).toMatchObject({ originalValue: 5.9, correctionReason: expect.stringMatching(/re-reading/) });
-    expect(fact.verifiedBy).toBe('Dr. Meenakshi Srivastava');
+    expect(fact.verifiedBy).toBe('Dr. Swati Mani');
   });
 
   it('refuses an implausible correction and a missing reason', async () => {
@@ -93,7 +93,7 @@ describe('values read from a document wait for a person', () => {
     const egfr = rec.missingMeasures.find((m: { code: string }) => m.code === 'egfr');
     expect(egfr.readings[0].display).toMatch(/61/);
     const v = await h.db.select().from(observationVersions).where(eq(observationVersions.observationId, id));
-    expect(v[0].byLabel).toBe('Dr. Meenakshi Srivastava');
+    expect(v[0].byLabel).toBe('Dr. Swati Mani');
     expect((await h.post(`/patients/P2/observations/${id}/confirm`, {}, doctor)).status).toBe(409);
   });
 

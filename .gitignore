@@ -9,3 +9,5 @@ dist
 .env.*
 !.env.example
 HANDOFF.md
+nirantar-frontend-kit.zip
+.kit-stage

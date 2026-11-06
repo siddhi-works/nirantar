@@ -36,8 +36,8 @@ function GlossaryHelper() {
 
 /** The people who can sign in as medical staff in the sandbox. A real deployment would check each against the Healthcare Professionals Registry. */
 const STAFF = [
-  { key: 'd1', role: 'doctor' as const, name: 'Dr. Meenakshi Srivastava', line: 'General Medicine', hospital: FACILITY.name, hprId: CREDENTIALS.doctor.id, hfrId: FACILITY.hfr },
-  { key: 'd2', role: 'doctor' as const, name: 'Dr. Rohit Verma', line: 'General Medicine', hospital: OTHER_FACILITY.name, hprId: OTHER_DOCTOR.id, hfrId: OTHER_FACILITY.hfr },
+  { key: 'd1', role: 'doctor' as const, name: 'Dr. Swati Mani', line: 'General Medicine', hospital: FACILITY.name, hprId: CREDENTIALS.doctor.id, hfrId: FACILITY.hfr },
+  { key: 'd2', role: 'doctor' as const, name: 'Dr. Pratayaksha', line: 'General Medicine', hospital: OTHER_FACILITY.name, hprId: OTHER_DOCTOR.id, hfrId: OTHER_FACILITY.hfr },
   { key: 'n1', role: 'nurse' as const, name: 'Sr. Kavita Mishra', line: 'Staff Nurse, OPD 3', hospital: FACILITY.name, hprId: CREDENTIALS.nurse.id, hfrId: FACILITY.hfr },
 ];
 
@@ -118,11 +118,11 @@ export default function Login() {
           <summary>{t('How to try this sandbox')}</summary>
           <p>Everything on this site is sample data. Your uploads and changes are private to this browser, so other people testing the site never see them.</p>
           <ol>
-            <li>Sign in as <b>Dr. Meenakshi Srivastava</b>, choose “Scan a report”, pick a patient and upload a slip, or use the sample prescription. Confirm, correct or reject what was read.</li>
+            <li>Sign in as <b>Dr. Swati Mani</b>, choose “Scan a report”, pick a patient and upload a slip, or use the sample prescription. Confirm, correct or reject what was read.</li>
             <li>Click a point on a chart, or a source chip, to see the slip a value came from. Choose “Correct value” to see that the original stays on record.</li>
-            <li>Sign in as <b>Dr. Rohit Verma</b> (Civil Hospital, Lucknow). The patient list shows patients held elsewhere. Choose “Request access”.</li>
+            <li>Sign in as <b>Dr. Pratayaksha</b> (Patna Medical College & Hospital, Patna). The patient list shows patients held elsewhere. Choose “Request access”.</li>
             <li>Sign in as that patient with their ABHA number and allow the request. You can narrow what is shared and for how long.</li>
-            <li>Sign in as Dr. Rohit Verma again and open the record. The copy arrives encrypted and read-only, with the source of every number.</li>
+            <li>Sign in as Dr. Pratayaksha again and open the record. The copy arrives encrypted and read-only, with the source of every number.</li>
           </ol>
           <FeedbackLink />
         </details>

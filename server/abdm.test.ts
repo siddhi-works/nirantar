@@ -28,7 +28,7 @@ describe('the signed consent', () => {
   it('records what was asked, what the patient allowed, and who signed it, and the sending hospital keeps its own copy', async () => {
     const { b, id } = await ask('a1a1a1a1a1a1', { hiTypes: ['Prescription', 'DiagnosticReport'], keepDays: 14 }, { decision: 'grant', hiTypes: ['Prescription'], validityDays: 7, keepDays: 3 });
     const [row] = await h.db.select().from(simConsents).where(eq(simConsents.id, id));
-    expect(row).toMatchObject({ status: 'granted', hiTypes: 'Prescription', validityDays: 7, keepDays: 3, purposeCode: 'CAREMGT', requesterName: 'Dr. Rohit Verma', requesterReg: '71-6100-2255-3094' });
+    expect(row).toMatchObject({ status: 'granted', hiTypes: 'Prescription', validityDays: 7, keepDays: 3, purposeCode: 'CAREMGT', requesterName: 'Dr. Pratayaksha', requesterReg: '71-6100-2255-3094' });
     const art = verify(row.artefact!, row.signature!)!;
     expect(art).toMatchObject({ status: 'GRANTED', hiTypes: ['Prescription'], hiu: { id: 'IN0900022991' }, hip: { id: 'IN2900011882' }, purpose: { code: 'CAREMGT' } });
     expect(art.permission).toMatchObject({ accessMode: 'VIEW', frequency: { unit: 'HOUR', value: 1, repeats: 0 } });
@@ -149,8 +149,8 @@ describe('a patient registered at the other hospital', () => {
 
     // each hospital sees every patient, and what it may do
     const fromB = await dir(lucknow);
-    expect(fromB.find(x => x.patientId === id)).toMatchObject({ access: 'held', holderName: 'Civil Hospital, Lucknow' });
-    expect(fromB.find(x => x.patientId === 'P1')).toMatchObject({ access: 'none', holderName: 'District Hospital, Gorakhpur' });
+    expect(fromB.find(x => x.patientId === id)).toMatchObject({ access: 'held', holderName: 'Patna Medical College & Hospital, Patna' });
+    expect(fromB.find(x => x.patientId === 'P1')).toMatchObject({ access: 'none', holderName: 'All India Institute of Medical Sciences, Gorakhpur' });
     const fromA = await dir(gorakhpur);
     expect(fromA.map(x => x.patientId).sort()).toEqual(['P1', 'P2', id].sort());
     expect(fromA.find(x => x.patientId === id)).toMatchObject({ access: 'none', name: RAMESH.name });
@@ -168,9 +168,9 @@ describe('a patient registered at the other hospital', () => {
     expect(got.status).toBe(201);
     const res = got.view.bundle.entry.map((e: { resource: Record<string, unknown> }) => e.resource);
     expect(res.find((r: { resourceType: string }) => r.resourceType === 'Patient').name[0].text).toBe(RAMESH.name);
-    expect(res.find((r: { resourceType: string }) => r.resourceType === 'Organization').name).toBe('Civil Hospital, Lucknow');
+    expect(res.find((r: { resourceType: string }) => r.resourceType === 'Organization').name).toBe('Patna Medical College & Hospital, Patna');
     expect(res.filter((r: { resourceType: string }) => r.resourceType === 'Observation').map((o: { code: { text: string } }) => o.code.text).sort()).toEqual(['Fasting glucose (FBS)', 'HbA1c']);
-    expect(got.view.fromName).toBe('Civil Hospital, Lucknow');
+    expect(got.view.fromName).toBe('Patna Medical College & Hospital, Patna');
     expect((await dir(gorakhpur)).find(x => x.patientId === id)!.receivedId).toBeTruthy();
 
     // the record itself never left Civil Hospital's own data: the holder sees no "received" copy of its own patient

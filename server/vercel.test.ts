@@ -51,7 +51,7 @@ for (const mode of ['none', 'parsed'] as const) {
       expect(cookie).toMatch(/HttpOnly/i);
       const me = await fetch(`${base}/api/auth/me`, { headers: { cookie: cookie.split(';')[0] } });
       expect(me.status).toBe(200);
-      expect((await me.json()).user.name).toBe('Dr. Meenakshi Srivastava');
+      expect((await me.json()).user.name).toBe('Dr. Swati Mani');
     });
 
     it('still refuses a cross-site browser write', async () => {

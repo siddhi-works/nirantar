@@ -39,3 +39,15 @@ describe('profile photos', () => {
     expect((await h.get('/me/photo', doctor)).status).toBe(404);
   });
 });
+
+describe('sample staff', () => {
+  it('are renamed on a database that already has them, so a deploy shows the new names', async () => {
+    const { users } = await import('./db/schema');
+    const { eq } = await import('drizzle-orm');
+    const { seed, DEV_DOCTOR } = await import('./seed');
+    await h.db.update(users).set({ name: 'Old Name', line: 'Old line' }).where(eq(users.id, DEV_DOCTOR.id));
+    await seed(h.db);
+    const [row] = await h.db.select().from(users).where(eq(users.id, DEV_DOCTOR.id));
+    expect(row.name).toBe('Dr. Swati Mani');
+  });
+});
