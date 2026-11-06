@@ -11,7 +11,8 @@ import { REG_ID, newPatientId, registeredByAbha, registeredPatient, simulatedAbh
 import { SANDBOX_ABHA, mismatches, profileByAbha } from '../sim/abha';
 
 export const CONSENT_VERSION = '2026-11';
-const MAX_PER_SPACE = 25;
+/** A public sandbox space is small on purpose. A hospital deployment sets MAX_REGISTERED_PER_SPACE high (or 0 for no cap). */
+const MAX_PER_SPACE = process.env.MAX_REGISTERED_PER_SPACE === undefined ? 25 : Number(process.env.MAX_REGISTERED_PER_SPACE) || Infinity;
 const MAX_OPEN_DRAFTS = 10;
 const PER_PERSON = 90; // steps per person per 10 minutes
 const DRAFT_MINUTES = 15;
@@ -168,10 +169,12 @@ export function registrationRoutes({ db, requireUser, open }: AppCtx) {
   /** The patients this staff member's hospital has registered in their own space, newest first. */
   r.get('/patients/registered', requireUser('doctor', 'nurse'), async c => {
     const user = c.get('user');
-    if (!user.hfrId) return c.json({ items: [] });
-    const rows = await db.select().from(registeredPatients)
-      .where(and(eq(registeredPatients.workspace, user.workspace), eq(registeredPatients.hfrId, user.hfrId))).orderBy(desc(registeredPatients.createdAt)).limit(MAX_PER_SPACE);
-    return c.json({ items: rows.map(profileOf) });
+    const q = z.object({ limit: z.coerce.number().int().min(1).max(100).default(25), offset: z.coerce.number().int().min(0).max(1_000_000).default(0) }).safeParse(c.req.query());
+    if (!user.hfrId || !q.success) return c.json({ items: [], total: 0 });
+    const where = and(eq(registeredPatients.workspace, user.workspace), eq(registeredPatients.hfrId, user.hfrId));
+    const [{ n }] = await db.select({ n: count() }).from(registeredPatients).where(where);
+    const rows = await db.select().from(registeredPatients).where(where).orderBy(desc(registeredPatients.createdAt), desc(registeredPatients.id)).limit(q.data.limit).offset(q.data.offset);
+    return c.json({ items: rows.map(profileOf), total: n });
   });
 
   r.get('/patients/:id/profile', requireUser('doctor', 'nurse'), async c => {
@@ -189,7 +192,7 @@ export function registrationRoutes({ db, requireUser, open }: AppCtx) {
     const p = await registeredPatient(db, id);
     if (!p) return c.json(NOT_FOUND, 404);
     const rows = await db.select().from(observations).where(and(eq(observations.patientId, scope(id, u.workspace)), inArray(observations.status, ['verified', 'corrected'])));
-    const values = rows.map(o => ({ code: o.code, label: OBS_BY_CODE[o.code]?.label ?? o.code, date: o.obsDate, value: o.valueNum, display: o.valueNum !== null ? `${o.valueNum}${OBS_BY_CODE[o.code]?.unit ? (OBS_BY_CODE[o.code].unit === '%' ? '%' : ' ' + OBS_BY_CODE[o.code].unit) : ''}` : String(o.valueText ?? ''), status: o.status }));
+    const values = rows.map(o => ({ code: o.code, label: OBS_BY_CODE[o.code]?.label ?? o.code, date: o.obsDate, value: o.valueNum, display: o.valueNum !== null ? `${o.valueNum}${OBS_BY_CODE[o.code]?.unit ? (OBS_BY_CODE[o.code].unit === '%' ? '%' : ' ' + OBS_BY_CODE[o.code].unit) : ''}` : String(o.valueText ?? ''), status: o.status, source: { origin: o.origin, documentId: o.documentId, quote: o.sourceText, by: o.byLabel } }));
     return c.json({ profile: profileOf(p), values });
   });
 

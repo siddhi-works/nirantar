@@ -3,7 +3,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { GENERIC_AUTH_ERROR, type AppRole, type SessionUser } from '../../src/domain/api';
-import { accessLog, sessions, users } from '../db/schema';
+import { accessLog, profilePhotos, sessions, users } from '../db/schema';
 import { COOKIE, WS_COOKIE, hashToken, newToken } from '../auth/session';
 import { WORKSPACE_RE, ensureWorkspace, newWorkspaceId } from '../seed';
 import { registeredByWorkspaceAbha } from '../registry';
@@ -17,6 +17,13 @@ const credentialsSchema = z.object({
   abha: z.string().trim().max(40).optional(),
 });
 const verifySchema = credentialsSchema.extend({ otp: z.string().regex(/^\d{4,8}$/).optional() });
+
+
+/** When the person's photo was last set (a cache-busting version), or undefined when they have none. */
+async function photoVersionOf(db: AppCtx['db'], workspace: string, userId: string): Promise<string | undefined> {
+  const [row] = await db.select({ at: profilePhotos.updatedAt }).from(profilePhotos).where(and(eq(profilePhotos.workspace, workspace), eq(profilePhotos.userId, userId))).limit(1);
+  return row ? String(row.at.getTime()) : undefined;
+}
 
 export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
   const r = new Hono<Env>();
@@ -78,9 +85,9 @@ export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
     return c.json({ user: { role: user.role as AppRole, name: user.name, line: user.line, patientId: user.patientId ?? undefined, hfrId: user.hfrId ?? undefined } satisfies SessionUser });
   });
 
-  r.get('/auth/me', requireUser(), c => {
+  r.get('/auth/me', requireUser(), async c => {
     const u = c.get('user');
-    return c.json({ user: { role: u.role, name: u.name, line: u.line, patientId: u.patientId ?? undefined, hfrId: u.hfrId ?? undefined } satisfies SessionUser });
+    return c.json({ user: { role: u.role, name: u.name, line: u.line, patientId: u.patientId ?? undefined, hfrId: u.hfrId ?? undefined, photoVersion: await photoVersionOf(db, u.workspace, u.id) } satisfies SessionUser });
   });
 
   /** Move this browser to a new, empty sample space. Only this tester's own additions are left behind. */

@@ -12,7 +12,7 @@ export function NavMenu() {
   const [on, setOn] = useState(false);
   const open = useSession(s => s.openPatient);
   const q = useApi(() => api.opdQueue(), []);
-  const reg = useApi(() => api.listRegistered(), []);
+  const reg = useApi(() => api.listRegistered({ limit: 8 }).then(r => r.items), []);
   const net = useApi(() => api.networkMessages(), []);
   useEffect(() => {
     if (!on) return;

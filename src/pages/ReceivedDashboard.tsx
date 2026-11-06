@@ -1,4 +1,3 @@
-import { Tabs } from '@/ui/Tabs';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Building2, CalendarClock, FileJson, Pill, ShieldCheck, Stethoscope } from 'lucide-react';
 import { api } from '@/api';
@@ -7,7 +6,7 @@ import type { ReceivedRecordView } from '@/domain/exchange';
 import type { TargetBand, TrendPoint, TrendSeries } from '@/domain/types';
 import { fmtDate } from '@/domain/format';
 import { useSession } from '@/session';
-import { Button, Card, CardHead, SkeletonCard, cx } from '@/ui/primitives';
+import { Button, Card, CardHead, SkeletonCard, SourceChip, cx } from '@/ui/primitives';
 import { TrendChart } from '@/ui/charts/TrendChart';
 import { domainOf } from '@/ui/charts/scale';
 import { useUi } from '@/ui/store';
@@ -30,14 +29,26 @@ const CHARTS: { code: string; label: string; unit: string; decimals: number; low
   { code: 'ppbs', label: 'After-meal sugar (PPBS)', unit: 'mg/dL', decimals: 0, lowerIsBetter: true, target: { max: 180, maxExclusive: true, label: '< 180 mg/dL', note: 'Usual after-meal goal' } },
 ];
 
-export interface Obs { code: string; label: string; date: string; value: number | null; display: string; note?: string; status: string }
+/** Where a value came from: an uploaded report (opens the page it was read from) or an entry by a named person. */
+export interface ObsSource { text: string; docId?: string | null; patientId?: string; quote?: string | null }
+export interface Obs { code: string; label: string; date: string; value: number | null; display: string; note?: string; status: string; source?: ObsSource }
+
+/** The evidence for one number. Every value on screen says where it came from, or says that the source was not sent. */
+export function SourceNote({ o }: { o: Obs }) {
+  const s = o.source;
+  if (!s) return <small className="muted">Source not included in this copy</small>;
+  if (s.docId && s.patientId) return <SourceChip citation={{ id: `obs:${s.docId}`, docId: s.docId, field: 'investigations', quote: s.quote ?? '' }} patientId={s.patientId} label="Uploaded report" title={`${o.label} ${o.display}`} />;
+  return <small className="muted">{s.text}</small>;
+}
 
 function readObservations(bundle: ReceivedRecordView['bundle']): { obs: Obs[]; res: Res[] } {
   const res = bundle.entry.map(e => e.resource as Res);
   const obs = res.filter(r => r.resourceType === 'Observation').map(o => ({
     code: LOINC[o.code?.coding?.[0]?.code as string] ?? '',
     label: text(o), date: String(o.effectiveDateTime ?? ''), value: typeof o.valueQuantity?.value === 'number' ? (o.valueQuantity.value as number) : null,
-    display: shownValue(o), note: o.note?.[0]?.text as string | undefined, status: String(o.status ?? ''),
+    display: shownValue(o), status: String(o.status ?? ''),
+    note: (o.note as { text: string }[] | undefined)?.find(n => !n.text.startsWith('Source:'))?.text,
+    source: ((n) => n ? { text: n.text.slice(8).trim() } : undefined)((o.note as { text: string }[] | undefined)?.find(n => n.text.startsWith('Source:'))),
   }));
   return { obs, res };
 }
@@ -67,6 +78,7 @@ function Tile({ label, unit, latest, first, decimals = 0, lowerIsBetter = true }
       <span className="eyebrow">{label}</span>
       <b className="num">{latest.value !== null ? latest.value.toFixed(decimals) : latest.display}<small> {unit}</small></b>
       <span className="muted">{fmtDate(latest.date)}</span>
+      <SourceNote o={latest} />
       {delta !== null && (Math.abs(delta) < 0.05 * 10 ** -decimals * 10
         ? <span className="delta delta--neutral">{t('No change since {date}', { date: fmtDate(first!.date) })}</span>
         : <span><span className={cx('delta', good ? 'delta--good' : 'delta--neutral')}>{delta > 0 ? '+' : '−'}{Math.abs(delta).toFixed(decimals)}</span> <span className="muted">{t('since {date}', { date: fmtDate(first!.date) })}</span></span>)}
@@ -122,11 +134,12 @@ export function ObsTable({ obs }: { obs: Obs[] }) {
       <Card accent="cerulean">
         <CardHead title="Results and examinations, by date" />
         <div style={{ overflowX: 'auto' }}>
-          <table className="table"><thead><tr><th>Date</th><th>Measure</th><th>Value</th><th>Status</th></tr></thead>
+          <table className="table"><thead><tr><th>Date</th><th>Measure</th><th>Value</th><th>Source</th><th>Status</th></tr></thead>
             <tbody>{byDate.flatMap(g => g.rows.map((o, i) => (
               <tr key={g.date + o.label + i}>
                 <td>{i === 0 ? <b>{fmtDate(g.date)}</b> : ''}</td><td>{o.label}</td>
                 <td className="num"><b>{o.display}</b>{o.note && <small className="muted" style={{ display: 'block' }}>{o.note}</small>}</td>
+                <td><SourceNote o={o} /></td>
                 <td>{o.status === 'final' ? 'Final' : 'Preliminary'}</td>
               </tr>
             )))}</tbody></table>
@@ -149,7 +162,6 @@ function Body({ v }: { v: ReceivedRecordView }) {
   const name = patient?.name?.[0]?.text as string | undefined;
   const initials = (name ?? '?').replace(/^(Mrs?|Dr)\.?\s*/, '').split(/\s+/).map(w => w[0]).slice(0, 2).join('');
 
-  const [tab, setTab] = useState<'overview' | 'values' | 'meds' | 'fhir'>('overview');
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     try { await api.annotate(v.id, note); setNotes(n => [...n, { id: Date.now(), text: note, by: 'You', at: new Date().toISOString() }]); setNote(''); toast('Note added'); }
@@ -177,12 +189,8 @@ function Body({ v }: { v: ReceivedRecordView }) {
       </Card>
       {v.consentStatus !== 'granted' && <div className="xban" role="status"><ShieldCheck size={16} /><span>The patient's permission is now <b>{STATUS[v.consentStatus].label.toLowerCase()}</b>, so no new copy can be fetched. You may keep this read-only copy only until the erase date shown above.</span></div>}
 
-      <Tabs label="Parts of the received record" value={tab} onChange={setTab} tabs={[
-        { k: 'overview', label: 'Overview' }, { k: 'values', label: 'All values' }, { k: 'meds', label: 'Medicines and notes' }, { k: 'fhir', label: 'FHIR copy' },
-      ]} />
-      {tab === 'overview' && <>{<ObsOverview obs={obs} />}</>}
-      {tab === 'values' && <>{<ObsTable obs={obs} />}</>}
-      {tab === 'meds' && (
+      <ObsOverview obs={obs} />
+
       <div className="cols cols--even">
         <Card accent="sage">
           <CardHead title="Medicines" icon={<Pill size={16} />} />
@@ -204,14 +212,13 @@ function Body({ v }: { v: ReceivedRecordView }) {
         </Card>
       </div>
 
-      )}
-      {tab === 'fhir' && (
+      <ObsTable obs={obs} />
+
       <div style={{ margin: '4px 0 28px' }}>
         <Button type="button" size="sm" variant="secondary" icon={<FileJson size={14} />} onClick={() => setJson(!json)}>{json ? 'Hide FHIR' : 'View FHIR'}</Button>
         {json && <pre translate="no" className="xjson" tabIndex={0} aria-label="FHIR bundle as received">{JSON.stringify(v.bundle, null, 2)}</pre>}
         <p className="hint" style={{ marginTop: 6 }}>FHIR R4 document bundle, built by the sending hospital and decrypted here. Not yet checked against the NHA profiles.</p>
       </div>
-      )}
     </main>
   );
 }

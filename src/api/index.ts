@@ -36,7 +36,7 @@ async function fetchRetry(url: string, init: RequestInit): Promise<Response> {
   }
 }
 
-async function http<T>(path: string, init: { method?: 'GET' | 'POST'; body?: unknown } = {}): Promise<T> {
+async function http<T>(path: string, init: { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: unknown } = {}): Promise<T> {
   const res = await fetchRetry(`/api${path}`, {
     method: init.method ?? 'GET',
     credentials: 'same-origin',
@@ -55,6 +55,8 @@ export const api = {
   /** Resolves to the signed-in user, or null when there is no valid session. */
   me: () => http<{ user: SessionUser }>('/auth/me').then(r => r.user, () => null),
   verifyOtp: (c: OtpCredentials) => http<{ user: SessionUser }>('/auth/otp/verify', { method: 'POST', body: c }).then(r => r.user),
+  setPhoto: async (image: string) => (await http<{ version: string }>('/me/photo', { method: 'PUT', body: { image } })).version,
+  removePhoto: async () => { await http('/me/photo', { method: 'DELETE', body: {} }); },
   logout: () => http<{ ok: true }>('/auth/logout', { method: 'POST', body: {} }).catch(() => undefined),
 
   /** Doctor or nurse opens a patient by ABHA. Rejects with a 404 for "no such record" and "no consent" alike. */
@@ -151,7 +153,7 @@ export const api = {
   raiseEdit: async (patientId: string, input: { subject: string; proposed: string; reason: string }) => { await http(`/patients/${encodeURIComponent(patientId)}/edit-requests`, { method: 'POST', body: input }); notify(); },
   listEdits: (patientId: string) => http<{ items: EditRequest[] }>(`/patients/${encodeURIComponent(patientId)}/edit-requests`).then(r => r.items),
   decideEdit: async (id: string, decision: 'accepted' | 'rejected', note: string) => { await http(`/edit-requests/${id}/decide`, { method: 'POST', body: { decision, note } }); notify(); },
-  directory: () => http<{ items: DirectoryEntry[] }>('/patients/directory').then(r => r.items),
+  directory: (o: { q?: string; held?: boolean; limit?: number; offset?: number } = {}) => http<{ items: DirectoryEntry[]; total: number; offset: number; limit: number }>(`/patients/directory?${new URLSearchParams({ ...(o.q ? { q: o.q } : {}), ...(o.held ? { held: '1' } : {}), limit: String(o.limit ?? 25), offset: String(o.offset ?? 0) })}`),
   askGeneral: (question: string, lang: 'en' | 'hi') => http<RecordAnswer>('/glossary/ask', { method: 'POST', body: { question, lang } }),
   opdQueue: () => http<OpdQueue>('/opd/queue'),
   opdWalkIn: async (abha: string, priority?: 'routine' | 'urgent') => { await http('/opd/walk-in', { method: 'POST', body: { abha, priority } }); notify(); },
@@ -162,8 +164,8 @@ export const api = {
   opdScan: async (hfr: string) => { const r = await http<OpdMine>('/opd/scan-and-share', { method: 'POST', body: { hfr } }); notify(); return r; },
   opdCancelMine: async () => { await http('/opd/me/cancel', { method: 'POST', body: {} }); notify(); },
   networkMessages: () => http<{ items: NetworkMessage[] }>('/network/messages').then(r => r.items),
-  listRegistered: () => http<{ items: RegisteredPatient[] }>('/patients/registered').then(r => r.items),
-  getOwnHome: (patientId: string) => http<{ profile: RegisteredPatient; values: { code: string; label: string; date: string; value: number | null; display: string; status: string }[] }>(`/patients/${encodeURIComponent(patientId)}/home`),
+  listRegistered: (o: { limit?: number; offset?: number } = {}) => http<{ items: RegisteredPatient[]; total: number }>(`/patients/registered?limit=${o.limit ?? 25}&offset=${o.offset ?? 0}`),
+  getOwnHome: (patientId: string) => http<{ profile: RegisteredPatient; values: { code: string; label: string; date: string; value: number | null; display: string; status: string; source: { origin: string; documentId: string | null; quote: string | null; by: string } }[] }>(`/patients/${encodeURIComponent(patientId)}/home`),
   getProfile: (patientId: string) => http<RegisteredPatient>(`/patients/${encodeURIComponent(patientId)}/profile`),
   askRecord: (patientId: string, question: string, lang: 'en' | 'hi') => http<RecordAnswer>(`/patients/${encodeURIComponent(patientId)}/ask`, { method: 'POST', body: { question, lang } }),
   retryDocument: async (docId: string) => { const r = await http<DocumentItem>(`/documents/${docId}/retry`, { method: 'POST', body: {} }); notify(); return r; },

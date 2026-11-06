@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Building2, Inbox, Loader2, Send, ShieldCheck } from 'lucide-react';
 import { api } from '@/api';
 import { useApi } from '@/api/hooks';
@@ -171,7 +171,13 @@ export function HomeHospitalNote({ hospital, other }: { hospital: string; other:
 export function PatientDirectory() {
   const toast = useUi(s => s.toast);
   const open = useSession(s => s.openPatient);
-  const { data, refetch } = useApi(() => api.directory(), []);
+  const [find, setFind] = useState('');
+  const [typed, setTyped] = useState('');
+  const [offset, setOffset] = useState(0);
+  const PAGE = 10;
+  useEffect(() => { const id = setTimeout(() => { setFind(typed.trim()); setOffset(0); }, 300); return () => clearTimeout(id); }, [typed]);
+  const { data: page, refetch } = useApi(() => api.directory({ q: find, limit: PAGE, offset }), [find, offset]);
+  const data = page?.items;
   const [busy, setBusy] = useState<string | null>(null);
   const [view, setView] = useState<string | null>(null);
   const run = async (key: string, fn: () => Promise<void>, ok: string) => { setBusy(key); try { await fn(); toast(ok); refetch(); } catch (e) { toast(e instanceof Error ? e.message : 'Could not do that.', 'error'); } finally { setBusy(null); } };
@@ -181,7 +187,11 @@ export function PatientDirectory() {
       <CardHead title="All patients" icon={<Building2 size={16} />} />
       <div className="card__body">
         <p className="hint">Every patient in this sandbox. A record is kept only at the hospital that registered the patient. For a patient held at another hospital, ask for access: they must allow it first.</p>
-        {list.length === 0 ? <p className="hint">Loading…</p> : (
+        <div className="field" style={{ margin: '10px 0' }}>
+          <label htmlFor="dirq">Find a patient</label>
+          <input id="dirq" className="input" type="search" value={typed} onChange={e => setTyped(e.target.value)} placeholder="Name, or the first digits of the ABHA number" />
+        </div>
+        {!page ? <p className="hint">Loading…</p> : list.length === 0 ? <p className="hint">No patient matches “{find}”.</p> : (
           <ul className="xlist">
             {list.map(p => (
               <li key={p.patientId}>
@@ -198,6 +208,13 @@ export function PatientDirectory() {
               </li>
             ))}
           </ul>
+        )}
+        {page && page.total > PAGE && (
+          <nav className="row" style={{ justifyContent: 'space-between', marginTop: 10 }} aria-label="Pages of patients">
+            <Button size="sm" variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>Previous</Button>
+            <small className="muted">{offset + 1}–{Math.min(offset + PAGE, page.total)} of {page.total}</small>
+            <Button size="sm" variant="secondary" disabled={offset + PAGE >= page.total} onClick={() => setOffset(offset + PAGE)}>Next</Button>
+          </nav>
         )}
       </div>
       {view && <ReceivedPage id={view} onClose={() => setView(null)} />}

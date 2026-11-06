@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { makeCtx, type Deps, type Env } from './ctx';
 import { users } from './db/schema';
 import { authRoutes } from './routes/auth';
+import { profileRoutes } from './routes/profile';
 import { patientRoutes } from './routes/patients';
 import { observationRoutes } from './routes/observations';
 import { documentRoutes } from './routes/documents';
@@ -53,6 +54,7 @@ export function createApp(deps: Deps) {
     return c.json({ ok: db === 'ready', auth: deps.auth.name, db }, db === 'ready' ? 200 : 503);
   });
   app.route('/', authRoutes(ctx));
+  app.route('/', profileRoutes(ctx));
   app.route('/', registrationRoutes(ctx)); // before patientRoutes: /patients/register and /patients/registered must not read as ids
   app.route('/', patientRoutes(ctx));
   app.route('/', observationRoutes(ctx));

@@ -33,7 +33,7 @@ function observation(f: Fact, patientRef: string, i: number): Fhir | null {
   const loinc = LOINC[f.code];
   const notes: { text: string }[] = [];
   if (f.verification === 'corrected') notes.push({ text: `Corrected${f.detail?.originalValue !== undefined ? ` from ${String(f.detail.originalValue)}` : ''}${f.detail?.correctionReason ? `: ${String(f.detail.correctionReason)}` : ''}` });
-  if (f.citation.source?.kind === 'upload') notes.push({ text: 'Read from an uploaded document and confirmed by staff.' });
+  notes.push({ text: `Source: ${f.citation.source?.kind === 'upload' ? 'read from an uploaded report and confirmed by staff' : 'written on the hospital’s own slip'}, dated ${f.date}` });
   return {
     resourceType: 'Observation', id: `obs-${i}`,
     // The hospital's own slips are its authored record. Unreviewed values from uploads never reach a bundle (they are not facts).
@@ -79,7 +79,7 @@ export function buildBundle(recall: Recall, hip: { hfr: string; name: string }, 
 /** A bundle for a patient who has no follow-up slips: identity plus the values a person has recorded or confirmed. */
 export function buildRegisteredBundle(
   p: { name: string; sex: string; abha: string },
-  rows: { code: string; valueNum: number | null; valueText: string | null; obsDate: string; status: string }[],
+  rows: { code: string; valueNum: number | null; valueText: string | null; obsDate: string; status: string; origin?: string; byLabel?: string }[],
   hip: { hfr: string; name: string }, at = new Date(), scope?: Scope,
 ): FhirBundle {
   const allowed = !scope || scope.hiTypes.includes('DiagnosticReport');
@@ -93,6 +93,7 @@ export function buildRegisteredBundle(
       category: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/observation-category', code: CATEGORY[def?.group ?? ''] ?? 'laboratory' }] }],
       code: { ...(loinc ? { coding: [{ system: 'http://loinc.org', code: loinc.code, display: loinc.display }] } : {}), text: def?.label ?? r.code },
       subject: { reference: 'Patient/pat' }, effectiveDateTime: r.obsDate,
+      ...(r.origin ? { note: [{ text: `Source: ${r.origin === 'upload' ? 'read from an uploaded report' : 'entered'} and confirmed by ${r.byLabel ?? 'staff'} at ${hip.name}` }] } : {}),
       ...(r.valueNum !== null ? { valueQuantity: { value: r.valueNum, unit: def?.unit ?? '', system: 'http://unitsofmeasure.org' } } : { valueString: r.valueText ?? '' }),
     } as Fhir;
   });

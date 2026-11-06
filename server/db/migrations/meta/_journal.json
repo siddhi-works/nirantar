@@ -64,6 +64,20 @@
       "when": 1793982017652,
       "tag": "0008_abdm_consent_artefact",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793990365058,
+      "tag": "0009_profile_photos",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793992871256,
+      "tag": "0010_directory_indexes",
+      "breakpoints": true
     }
   ]
 }

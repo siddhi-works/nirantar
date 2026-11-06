@@ -153,7 +153,8 @@ export function RegisterDialog({ onClose }: { onClose: () => void }) {
 export function RegisterCard() {
   const [dialog, setDialog] = useState(false);
   const open = useSession(s => s.openPatient);
-  const { data } = useApi(() => api.listRegistered(), []);
+  const { data: page } = useApi(() => api.listRegistered({ limit: 5 }), []);
+  const data = page?.items;
   const list = data ?? [];
   return (
     <Card accent="sage">

@@ -7,7 +7,6 @@ import type { RegisteredPatient } from '@/domain/api';
 import { Button, Card, CardHead, SkeletonCard, cx } from '@/ui/primitives';
 import { Modal } from '@/ui/primitives';
 import { useUi } from '@/ui/store';
-import { Tabs } from '@/ui/Tabs';
 import { LoadError, TopBar } from './Chrome';
 import { ObsOverview, ObsTable, fmtWhen, type Obs } from './ReceivedDashboard';
 import { RecordDialog } from './RecordResult';
@@ -20,7 +19,6 @@ export default function RegisteredPatientPage() {
   const close = useSession(s => s.closePatient);
   const role = useSession(s => s.user!.role) as 'doctor' | 'nurse';
   const id = useSession(s => s.openId)!;
-  const [tab, setTab] = useState<'values' | 'review' | 'care' | 'rights'>('values');
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const profile = useApi(() => api.getProfile(id), [id]);
@@ -29,6 +27,7 @@ export default function RegisteredPatientPage() {
   const obs: Obs[] = useMemo(() => (values.data ?? []).filter(o => o.status === 'verified' || o.status === 'corrected').map(o => ({
     code: o.code, label: o.label, date: o.date, value: typeof o.current === 'number' ? o.current : null,
     display: `${o.current ?? ''}${o.unit ? (o.unit === '%' ? '%' : ' ' + o.unit) : ''}`.trim(), note: o.status === 'corrected' ? 'Corrected by staff' : undefined, status: 'final',
+    source: { text: `${o.origin === 'upload' ? 'Read from an uploaded report' : 'Entered'} · ${o.by}`, docId: o.documentId, patientId: id, quote: o.sourceText },
   })), [values.data]);
 
   const p = profile.data;
@@ -69,13 +68,13 @@ export default function RegisteredPatientPage() {
           <div className="xban" role="status"><Info size={16} /><span><b>This is a new patient, so the record is empty.</b> Record a result, or upload a lab report or prescription. Values read from an upload count after a doctor or nurse confirms them. Charts and tiles appear here as confirmed values arrive.</span></div>
         )}
 
-        <Tabs label="Parts of the record" value={tab} onChange={setTab} tabs={[
-          { k: 'values', label: 'Values' }, { k: 'review', label: 'Reports to review' }, { k: 'care', label: 'Summary and care' }, { k: 'rights', label: 'Patient rights' },
-        ]} />
-        {tab === 'values' && <><ObsOverview obs={obs} /><ObsTable obs={obs} /></>}
-        {tab === 'review' && <ReviewCard patientId={id} onUpload={() => setUploading(true)} />}
-        {tab === 'care' && <div className="cols cols--even"><SummaryBlock patientId={id} /><div className="stack" style={{ gap: 18 }}><CounsellingCard patientId={id} role={role} /><CorrectionCard patientId={id} role={role} /></div></div>}
-        {tab === 'rights' && <RightsCard p={p} onChanged={profile.refetch} onErased={close} />}
+        <SummaryBlock patientId={id} />
+        <ObsOverview obs={obs} />
+        <ReviewCard patientId={id} onUpload={() => setUploading(true)} />
+        <ObsTable obs={obs} />
+        <CounsellingCard patientId={id} role={role} />
+        <CorrectionCard patientId={id} role={role} />
+        <RightsCard p={p} onChanged={profile.refetch} onErased={close} />
         <p className="hint" style={{ textAlign: 'center', margin: '8px 0 24px' }}>Prototype with synthetic data. Only values a person has recorded or confirmed appear above.</p>
       </main>
       {uploading && <UploadDialog patientId={id} onClose={() => setUploading(false)} />}

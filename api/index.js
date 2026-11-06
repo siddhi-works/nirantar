@@ -52166,6 +52166,7 @@ __export(schema_exports, {
   opdVisits: () => opdVisits,
   patientAdvice: () => patientAdvice,
   patients: () => patients,
+  profilePhotos: () => profilePhotos,
   receivedRecords: () => receivedRecords,
   recordAnnotations: () => recordAnnotations,
   registeredPatients: () => registeredPatients,
@@ -52337,7 +52338,7 @@ var simConsents = pgTable("sim_consents", {
   /** The signed artefact, set when the patient grants. The receiver and the sender each keep a copy. */
   artefact: text("artefact"),
   signature: text("signature")
-}, (t2) => [index("sim_consents_patient").on(t2.patientId), index("sim_consents_hiu").on(t2.hiuHfr)]);
+}, (t2) => [index("sim_consents_patient").on(t2.patientId), index("sim_consents_hiu").on(t2.hiuHfr), index("sim_consents_hiu_abha").on(t2.workspace, t2.hiuHfr, t2.abha)]);
 var hipConsentCopies = pgTable("hip_consent_copies", {
   consentId: text("consent_id").primaryKey(),
   hipHfr: text("hip_hfr").notNull(),
@@ -52434,7 +52435,13 @@ var registeredPatients = pgTable("registered_patients", {
   byUserId: text("by_user_id").notNull(),
   byLabel: text("by_label").notNull(),
   createdAt: ts2("created_at").notNull().defaultNow()
-}, (t2) => [uniqueIndex("registered_workspace_abha").on(t2.workspace, t2.abha)]);
+}, (t2) => [
+  uniqueIndex("registered_workspace_abha").on(t2.workspace, t2.abha),
+  index("registered_workspace_hfr").on(t2.workspace, t2.hfrId, t2.createdAt),
+  // a hospital's own list, newest first
+  index("registered_workspace_name").on(t2.workspace, t2.name)
+  // the alphabetical page of the directory
+]);
 var consentEvents = pgTable("consent_events", {
   id: serial("id").primaryKey(),
   patientId: text("patient_id").notNull(),
@@ -52539,6 +52546,13 @@ var gatewayMessages = pgTable("gateway_messages", {
   // what it was about, never the health data itself
   at: ts2("at").notNull().defaultNow()
 }, (t2) => [index("gateway_messages_ws").on(t2.workspace)]);
+var profilePhotos = pgTable("profile_photos", {
+  workspace: text("workspace").notNull(),
+  userId: text("user_id").notNull(),
+  data: text("data").notNull(),
+  // base64 JPEG
+  updatedAt: ts2("updated_at").notNull().defaultNow()
+}, (t2) => [primaryKey({ columns: [t2.workspace, t2.userId] })]);
 var workspaces = pgTable("workspaces", {
   id: text("id").primaryKey(),
   createdAt: ts2("created_at").notNull().defaultNow(),
@@ -55527,6 +55541,7 @@ async function clearIdleWorkspaces(db, now = /* @__PURE__ */ new Date()) {
   return stale.length;
 }
 async function removeWorkspace(db, ws2) {
+  await db.delete(profilePhotos).where(eq(profilePhotos.workspace, ws2));
   const mine = `%~${ws2}`;
   const docs = await db.select({ id: documents.id }).from(documents).where(like(documents.patientId, mine));
   if (docs.length) await db.delete(fileBlobs).where(inArray(fileBlobs.id, docs.map((d2) => d2.id)));
@@ -75398,6 +75413,10 @@ var credentialsSchema = external_exports.object({
   abha: external_exports.string().trim().max(40).optional()
 });
 var verifySchema = credentialsSchema.extend({ otp: external_exports.string().regex(/^\d{4,8}$/).optional() });
+async function photoVersionOf(db, workspace, userId) {
+  const [row] = await db.select({ at: profilePhotos.updatedAt }).from(profilePhotos).where(and(eq(profilePhotos.workspace, workspace), eq(profilePhotos.userId, userId))).limit(1);
+  return row ? String(row.at.getTime()) : void 0;
+}
 function authRoutes({ db, config: config3, auth, requireUser }) {
   const r2 = new Hono3();
   r2.post("/auth/otp/request", async (c3) => {
@@ -75447,9 +75466,9 @@ function authRoutes({ db, config: config3, auth, requireUser }) {
     await db.insert(accessLog).values({ userId: user.id, role: user.role, action: "sign-in", outcome: "allowed" });
     return c3.json({ user: { role: user.role, name: user.name, line: user.line, patientId: user.patientId ?? void 0, hfrId: user.hfrId ?? void 0 } });
   });
-  r2.get("/auth/me", requireUser(), (c3) => {
+  r2.get("/auth/me", requireUser(), async (c3) => {
     const u2 = c3.get("user");
-    return c3.json({ user: { role: u2.role, name: u2.name, line: u2.line, patientId: u2.patientId ?? void 0, hfrId: u2.hfrId ?? void 0 } });
+    return c3.json({ user: { role: u2.role, name: u2.name, line: u2.line, patientId: u2.patientId ?? void 0, hfrId: u2.hfrId ?? void 0, photoVersion: await photoVersionOf(db, u2.workspace, u2.id) } });
   });
   r2.post("/workspace/fresh", requireUser(), async (c3) => {
     const me2 = c3.get("user");
@@ -75465,6 +75484,39 @@ function authRoutes({ db, config: config3, auth, requireUser }) {
   r2.post("/auth/logout", requireUser(), async (c3) => {
     await db.update(sessions).set({ revokedAt: /* @__PURE__ */ new Date() }).where(eq(sessions.id, c3.get("user").sessionId));
     deleteCookie(c3, COOKIE, { path: "/" });
+    return c3.json({ ok: true });
+  });
+  return r2;
+}
+
+// server/routes/profile.ts
+var MAX_CHARS = 2e5;
+var DATA_URL = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/;
+function profileRoutes({ db, requireUser }) {
+  const r2 = new Hono3();
+  r2.put("/me/photo", requireUser(), async (c3) => {
+    const me2 = c3.get("user");
+    const body = external_exports.object({ image: external_exports.string().max(MAX_CHARS + 40) }).safeParse(await c3.req.json().catch(() => null));
+    const m2 = body.success ? DATA_URL.exec(body.data.image) : null;
+    if (!m2 || m2[1].length > MAX_CHARS) return c3.json({ error: "bad_request", message: "Send a JPEG picture under 150 KB." }, 400);
+    const bytes = Buffer.from(m2[1], "base64");
+    if (bytes.length < 200 || bytes[0] !== 255 || bytes[1] !== 216 || bytes[2] !== 255) return c3.json({ error: "bad_request", message: "That file is not a JPEG picture." }, 400);
+    const key2 = `photo:${me2.id}:${me2.workspace}`;
+    if (await countRequests(db, key2) >= 20) return c3.json({ error: "too_many_attempts", message: "Too many changes. Try again later." }, 429);
+    await record2(db, key2, true);
+    const at2 = /* @__PURE__ */ new Date();
+    await db.insert(profilePhotos).values({ workspace: me2.workspace, userId: me2.id, data: m2[1], updatedAt: at2 }).onConflictDoUpdate({ target: [profilePhotos.workspace, profilePhotos.userId], set: { data: m2[1], updatedAt: at2 } });
+    return c3.json({ version: String(at2.getTime()) });
+  });
+  r2.get("/me/photo", requireUser(), async (c3) => {
+    const me2 = c3.get("user");
+    const [row] = await db.select({ data: profilePhotos.data }).from(profilePhotos).where(and(eq(profilePhotos.workspace, me2.workspace), eq(profilePhotos.userId, me2.id))).limit(1);
+    if (!row) return c3.json({ error: "not_found" }, 404);
+    return new Response(Buffer.from(row.data, "base64"), { headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=31536000, immutable", "x-content-type-options": "nosniff" } });
+  });
+  r2.delete("/me/photo", requireUser(), async (c3) => {
+    const me2 = c3.get("user");
+    await db.delete(profilePhotos).where(and(eq(profilePhotos.workspace, me2.workspace), eq(profilePhotos.userId, me2.id)));
     return c3.json({ ok: true });
   });
   return r2;
@@ -77355,7 +77407,7 @@ function observation(f2, patientRef, i3) {
   const loinc = LOINC[f2.code];
   const notes = [];
   if (f2.verification === "corrected") notes.push({ text: `Corrected${f2.detail?.originalValue !== void 0 ? ` from ${String(f2.detail.originalValue)}` : ""}${f2.detail?.correctionReason ? `: ${String(f2.detail.correctionReason)}` : ""}` });
-  if (f2.citation.source?.kind === "upload") notes.push({ text: "Read from an uploaded document and confirmed by staff." });
+  notes.push({ text: `Source: ${f2.citation.source?.kind === "upload" ? "read from an uploaded report and confirmed by staff" : "written on the hospital\u2019s own slip"}, dated ${f2.date}` });
   return {
     resourceType: "Observation",
     id: `obs-${i3}`,
@@ -77414,6 +77466,7 @@ function buildRegisteredBundle(p3, rows, hip, at2 = /* @__PURE__ */ new Date(), 
       code: { ...loinc ? { coding: [{ system: "http://loinc.org", code: loinc.code, display: loinc.display }] } : {}, text: def?.label ?? r2.code },
       subject: { reference: "Patient/pat" },
       effectiveDateTime: r2.obsDate,
+      ...r2.origin ? { note: [{ text: `Source: ${r2.origin === "upload" ? "read from an uploaded report" : "entered"} and confirmed by ${r2.byLabel ?? "staff"} at ${hip.name}` }] } : {},
       ...r2.valueNum !== null ? { valueQuantity: { value: r2.valueNum, unit: def?.unit ?? "", system: "http://unitsofmeasure.org" } } : { valueString: r2.valueText ?? "" }
     };
   });
@@ -77525,13 +77578,31 @@ function exchangeRoutes(ctx) {
   r2.get("/patients/directory", requireUser("doctor", "nurse"), async (c3) => {
     const me2 = c3.get("user");
     const hfr = me2.hfrId ?? "";
-    const known = [
-      ...parseRecord().patients.map((p3) => ({ id: p3.id, name: p3.name, abha: digits2(p3.abhaId), holder: HOME_HFR })),
-      ...(await db.select().from(registeredPatients).where(eq(registeredPatients.workspace, me2.workspace))).map((p3) => ({ id: p3.id, name: p3.name, abha: p3.abha, holder: p3.hfrId }))
-    ];
-    const asks = await db.select().from(simConsents).where(and(eq(simConsents.hiuHfr, hfr), eq(simConsents.workspace, me2.workspace)));
+    const q2 = external_exports.object({ q: external_exports.string().trim().max(60).optional(), held: external_exports.enum(["1"]).optional(), limit: external_exports.coerce.number().int().min(1).max(50).default(25), offset: external_exports.coerce.number().int().min(0).max(1e6).default(0) }).safeParse(c3.req.query());
+    if (!q2.success) return c3.json({ error: "bad_request" }, 400);
+    const { q: term = "", held, limit, offset } = q2.data;
+    const needle = term.toLowerCase();
+    const digitsOnly = digits2(term);
+    const samples = parseRecord().patients.map((p3) => ({ id: p3.id, name: p3.name, abha: digits2(p3.abhaId), holder: HOME_HFR })).filter((p3) => (!held || p3.holder === hfr) && (!needle || p3.name.toLowerCase().includes(needle) || digitsOnly.length >= 3 && p3.abha.startsWith(digitsOnly)));
+    const like_ = needle.replace(/[\\%_]/g, (m2) => "\\" + m2);
+    const where = and(
+      eq(registeredPatients.workspace, me2.workspace),
+      held ? eq(registeredPatients.hfrId, hfr) : void 0,
+      needle ? or(like(sql`lower(${registeredPatients.name})`, `%${like_}%`), digitsOnly.length >= 3 ? like(registeredPatients.abha, `${digitsOnly}%`) : void 0) : void 0
+    );
+    const [{ n: registeredTotal }] = await db.select({ n: count() }).from(registeredPatients).where(where);
+    const total = samples.length + registeredTotal;
+    const fromSamples = samples.slice(offset, offset + limit);
+    const need = limit - fromSamples.length;
+    const rows = need > 0 ? await db.select().from(registeredPatients).where(where).orderBy(asc(registeredPatients.name), asc(registeredPatients.id)).limit(need).offset(Math.max(0, offset - samples.length)) : [];
+    const known = [...fromSamples, ...rows.map((p3) => ({ id: p3.id, name: p3.name, abha: p3.abha, holder: p3.hfrId }))];
+    const abhas = known.map((k2) => k2.abha);
+    const asks = abhas.length ? await db.select().from(simConsents).where(and(eq(simConsents.hiuHfr, hfr), eq(simConsents.workspace, me2.workspace), inArray(simConsents.abha, abhas))) : [];
     const { received } = await receivedIndex(asks.map((a3) => a3.id));
     return c3.json({
+      total,
+      offset,
+      limit,
       items: known.map((k2) => {
         const mine2 = asks.filter((a3) => a3.abha === k2.abha).sort((a3, b3) => b3.createdAt.getTime() - a3.createdAt.getTime())[0];
         const access = k2.holder === hfr ? "held" : mine2 ? effective(mine2) : "none";
@@ -77573,7 +77644,8 @@ function exchangeRoutes(ctx) {
       const eraseAt = new Date(now.getTime() + keep * 864e5);
       const holder = row.patientId && await holderOf(db, baseOf(row.patientId)) || HOME_HFR;
       const lastRecord = row.patientId ? patientOf(baseOf(row.patientId))?.asOf : void 0;
-      const rangeEnd = lastRecord && new Date(lastRecord).getTime() > now.getTime() ? new Date(lastRecord) : now;
+      const endOfIndianDay = /* @__PURE__ */ new Date(`${todayIST(now)}T23:59:59+05:30`);
+      const rangeEnd = [now, endOfIndianDay, ...lastRecord ? [new Date(lastRecord)] : []].reduce((a3, b3) => b3.getTime() > a3.getTime() ? b3 : a3);
       const art = {
         consentId: row.id,
         createdAt: now.toISOString(),
@@ -77588,7 +77660,7 @@ function exchangeRoutes(ctx) {
         consentExpiry: expiresAt.toISOString()
       };
       const { json: json3, signature } = sign(art);
-      await db.update(simConsents).set({ status: "granted", decidedAt: now, expiresAt, validityDays: validity, keepDays: keep, dataEraseAt: eraseAt, dateTo: now, hiTypes: types2.join(","), artefact: json3, signature }).where(eq(simConsents.id, row.id));
+      await db.update(simConsents).set({ status: "granted", decidedAt: now, expiresAt, validityDays: validity, keepDays: keep, dataEraseAt: eraseAt, dateTo: rangeEnd, hiTypes: types2.join(","), artefact: json3, signature }).where(eq(simConsents.id, row.id));
       await msg(ws2, row.id, "phr-app", "gateway", "/v3/consent-requests/approve", `The patient allowed ${types2.length} of ${asked.length} kinds of record`);
       await db.insert(hipConsentCopies).values({ consentId: row.id, hipHfr: holder, workspace: ws2, artefact: json3, signature, status: "GRANTED" }).onConflictDoNothing();
       await msg(ws2, row.id, "gateway", "hip", "/v3/consent/hip/notify", "The sending hospital saved its own copy of the signed consent");
@@ -78271,7 +78343,7 @@ function assistantRoutes({ db, chat, requireUser, open: open3, opsFor }) {
 // server/routes/registration.ts
 import { createHash as createHash5, randomInt as randomInt2, randomUUID as randomUUID7, timingSafeEqual as timingSafeEqual3 } from "node:crypto";
 var CONSENT_VERSION = "2026-11";
-var MAX_PER_SPACE = 25;
+var MAX_PER_SPACE = process.env.MAX_REGISTERED_PER_SPACE === void 0 ? 25 : Number(process.env.MAX_REGISTERED_PER_SPACE) || Infinity;
 var MAX_OPEN_DRAFTS = 10;
 var PER_PERSON2 = 90;
 var DRAFT_MINUTES = 15;
@@ -78450,9 +78522,12 @@ function registrationRoutes({ db, requireUser, open: open3 }) {
   });
   r2.get("/patients/registered", requireUser("doctor", "nurse"), async (c3) => {
     const user = c3.get("user");
-    if (!user.hfrId) return c3.json({ items: [] });
-    const rows = await db.select().from(registeredPatients).where(and(eq(registeredPatients.workspace, user.workspace), eq(registeredPatients.hfrId, user.hfrId))).orderBy(desc(registeredPatients.createdAt)).limit(MAX_PER_SPACE);
-    return c3.json({ items: rows.map(profileOf) });
+    const q2 = external_exports.object({ limit: external_exports.coerce.number().int().min(1).max(100).default(25), offset: external_exports.coerce.number().int().min(0).max(1e6).default(0) }).safeParse(c3.req.query());
+    if (!user.hfrId || !q2.success) return c3.json({ items: [], total: 0 });
+    const where = and(eq(registeredPatients.workspace, user.workspace), eq(registeredPatients.hfrId, user.hfrId));
+    const [{ n: n3 }] = await db.select({ n: count() }).from(registeredPatients).where(where);
+    const rows = await db.select().from(registeredPatients).where(where).orderBy(desc(registeredPatients.createdAt), desc(registeredPatients.id)).limit(q2.data.limit).offset(q2.data.offset);
+    return c3.json({ items: rows.map(profileOf), total: n3 });
   });
   r2.get("/patients/:id/profile", requireUser("doctor", "nurse"), async (c3) => {
     const id = c3.req.param("id");
@@ -78467,7 +78542,7 @@ function registrationRoutes({ db, requireUser, open: open3 }) {
     const p3 = await registeredPatient(db, id);
     if (!p3) return c3.json(NOT_FOUND, 404);
     const rows = await db.select().from(observations).where(and(eq(observations.patientId, scope(id, u2.workspace)), inArray(observations.status, ["verified", "corrected"])));
-    const values = rows.map((o2) => ({ code: o2.code, label: OBS_BY_CODE[o2.code]?.label ?? o2.code, date: o2.obsDate, value: o2.valueNum, display: o2.valueNum !== null ? `${o2.valueNum}${OBS_BY_CODE[o2.code]?.unit ? OBS_BY_CODE[o2.code].unit === "%" ? "%" : " " + OBS_BY_CODE[o2.code].unit : ""}` : String(o2.valueText ?? ""), status: o2.status }));
+    const values = rows.map((o2) => ({ code: o2.code, label: OBS_BY_CODE[o2.code]?.label ?? o2.code, date: o2.obsDate, value: o2.valueNum, display: o2.valueNum !== null ? `${o2.valueNum}${OBS_BY_CODE[o2.code]?.unit ? OBS_BY_CODE[o2.code].unit === "%" ? "%" : " " + OBS_BY_CODE[o2.code].unit : ""}` : String(o2.valueText ?? ""), status: o2.status, source: { origin: o2.origin, documentId: o2.documentId, quote: o2.sourceText, by: o2.byLabel } }));
     return c3.json({ profile: profileOf(p3), values });
   });
   async function mine(c3, action) {
@@ -79054,6 +79129,7 @@ function createApp(deps) {
     return c3.json({ ok: db === "ready", auth: deps.auth.name, db }, db === "ready" ? 200 : 503);
   });
   app.route("/", authRoutes(ctx));
+  app.route("/", profileRoutes(ctx));
   app.route("/", registrationRoutes(ctx));
   app.route("/", patientRoutes(ctx));
   app.route("/", observationRoutes(ctx));

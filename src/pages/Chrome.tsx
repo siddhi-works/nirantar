@@ -1,19 +1,18 @@
-import { useState, type ReactNode } from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, FileText, HeartPulse, Home, LayoutDashboard, Loader2, LogOut, Network, QrCode, Search, Share2, UserPlus, UserSearch, Users, type LucideIcon } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { AlertCircle, AlertTriangle, Camera, CheckCircle2, Loader2, LogOut, Search, UserSearch } from 'lucide-react';
 import { api } from '@/api';
 import { digits, formatAbha, useSession } from '@/session';
 import { useUi } from '@/ui/store';
 import { cx } from '@/ui/primitives';
 import { LangToggle } from '@/i18n/controls';
-import { FACILITY, OTHER_FACILITY } from '@/data/demo';
 import { useT } from '@/i18n';
-import { navFor, useNav, useSection } from '@/ui/nav';
+import { NavMenu } from './NavMenu';
 
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
-      <rect width="32" height="32" rx="8" fill="#1B5FAA" />
-      <path d="M5 18h5l3-7 4 13 3-9 2 3h5" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <rect width="32" height="32" rx="9" fill="#4FA8A0" />
+      <path d="M5 18h5l3-7 4 13 3-9 2 3h5" fill="none" stroke="#173140" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -43,57 +42,97 @@ export const FeedbackLink = () => FEEDBACK_URL
   ? <a className="btn btn--ghost btn--sm" href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer">Give feedback</a>
   : null;
 
-const ICONS: Record<string, LucideIcon> = {
-  layout: LayoutDashboard, users: Users, userplus: UserPlus, network: Network, qr: QrCode,
-  home: Home, heart: HeartPulse, file: FileText, share: Share2,
+export const VIEWS = {
+  staff: [{ view: 'main' as const, label: 'Workspace' }, { view: 'share' as const, label: 'Network and sharing' }],
+  patient: [{ view: 'main' as const, label: 'My record' }, { view: 'share' as const, label: 'Sharing' }],
 };
+const SHARE_PARTS = new Set(['network', 'qr', 'updates', 'sharing']);
 
-/** The frame around every signed-in screen: a sidebar on laptops, a tab bar on phones, and a slim bar with the page context. */
-export function TopBar({ right }: { right?: ReactNode }) {
-  const { user, logout, closePatient, openId } = useSession();
+/** Scrolls to a part of the app, switching to the other view first when that part lives there. */
+export function jumpTo(id: string) {
+  useSession.getState().setView(SHARE_PARTS.has(id) ? 'share' : 'main');
+  setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+/** A person's photo if they added one, otherwise their initial. */
+export function Avatar({ name, photo, size = 'sm' }: { name?: string; photo?: string | null; size?: 'sm' | 'md' }) {
+  const initial = name?.replace(/^(Mrs?|Dr|Nurse)\.?\s*/, '')[0] ?? '';
+  return photo
+    ? <img className={cx('avatar', size === 'sm' && 'avatar--sm', 'avatar--img')} src={photo} alt="" />
+    : <span className={cx('avatar', size === 'sm' && 'avatar--sm')} aria-hidden="true">{initial}</span>;
+}
+
+/** Shrinks a chosen picture to a small square JPEG in the browser, so the server only ever stores a small file. */
+async function squareJpeg(file: File): Promise<string> {
+  const bmp = await createImageBitmap(file);
+  const side = Math.min(bmp.width, bmp.height);
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  c.getContext('2d')!.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, 256, 256);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
+function ProfileMenu() {
+  const { user, logout, setPhotoVersion } = useSession();
+  const toast = useUi(s => s.toast);
   const t = useT();
-  const section = useSection();
-  const setSection = useNav(s => s.setSection);
-  const items = navFor(user?.role);
-  const here = items.find(i => i.k === section);
-  const go = (k: string) => { setSection(k); if (openId) closePatient(); window.scrollTo({ top: 0 }); };
-  const active = openId && user?.role !== 'patient' ? '' : section;
-  const initial = user?.name.replace(/^(Mrs?|Dr|Nurse)\.?\s*/, '')[0];
+  const [on, setOn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const file = useRef<HTMLInputElement>(null);
+  const photo = user?.photoVersion ? `/api/me/photo?v=${user.photoVersion}` : null;
+  const pick = async (f?: File) => {
+    if (!f) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { toast(t('Choose a JPG, PNG or WebP picture.'), 'error'); return; }
+    if (f.size > 8_000_000) { toast(t('That picture is too large. Choose one under 8 MB.'), 'error'); return; }
+    setBusy(true);
+    try { const v = await api.setPhoto(await squareJpeg(f)); setPhotoVersion(v); toast(t('Photo saved.')); }
+    catch (e) { toast(e instanceof Error ? e.message : t('Could not save the photo.'), 'error'); } finally { setBusy(false); }
+  };
+  useEffect(() => {
+    if (!on) return;
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setOn(false); };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, [on]);
   return (
-    <>
-      <aside className="side" aria-label={t('Main menu')}>
-        <div className="side__brand"><Logo size={32} /><span>Nirantar</span></div>
-        <div className="side__org">
-          <small>{user?.role === 'patient' ? t('Your health record') : t('Signed in at')}</small>
-          <b translate="no">{user?.role === 'patient' ? (user?.line ?? '') : (user?.hfrId === OTHER_FACILITY.hfr ? OTHER_FACILITY.name : FACILITY.name)}</b>
-        </div>
-        <nav className="side__nav">
-          {items.map(i => { const Icon = ICONS[i.icon]; return (
-            <button key={i.k} type="button" className={cx('side__item', active === i.k && 'is-on')} aria-current={active === i.k ? 'page' : undefined} onClick={() => go(i.k)}><Icon size={18} />{t(i.label)}</button>
-          ); })}
-        </nav>
-        <div className="side__foot">
-          <LangToggle />
+    <div className="pmenu">
+      <button type="button" className="pmenu__btn" aria-expanded={on} aria-haspopup="true" onClick={() => setOn(!on)} aria-label={t('Your profile')}>
+        <Avatar name={user?.name} photo={photo} />
+        <span className="pmenu__who"><b translate="no">{user?.name}</b><small translate="no">{user?.line}</small></span>
+      </button>
+      {on && (
+        <div className="pmenu__pop" role="menu">
+          <div className="pmenu__head"><Avatar name={user?.name} photo={photo} size="md" /><span><b translate="no">{user?.name}</b><small translate="no">{user?.line}</small></span></div>
+          <input ref={file} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
+          <button type="button" className="btn btn--secondary btn--sm" disabled={busy} onClick={() => file.current?.click()}><Camera size={14} />{photo ? t('Change photo') : t('Add a photo')}</button>
+          {photo && <button type="button" className="btn btn--ghost btn--sm" disabled={busy} onClick={async () => { await api.removePhoto(); setPhotoVersion(null); }}>{t('Remove photo')}</button>}
+          <hr className="hr" />
           <FeedbackLink />
           <FreshStart />
-          <div className="side__user"><span className="avatar avatar--sm">{initial}</span><span><b translate="no">{user?.name}</b><small translate="no">{user?.line}</small></span></div>
-          <button className="side__out" onClick={logout}><LogOut size={15} />{t('Log out')}</button>
+          <button type="button" className="btn btn--sm" onClick={logout}><LogOut size={14} />{t('Log out')}</button>
         </div>
-      </aside>
-      <header className="bar">
-        <div className="bar__brand"><Logo size={26} /><span>Nirantar</span></div>
-        <div className="bar__ctx"><h1 className="bar__title">{openId && user?.role !== 'patient' ? t('Patient record') : here ? t(here.label) : ''}</h1><small>{today()}</small></div>
+      )}
+    </div>
+  );
+}
+
+/** The one header on every signed-in screen: the brand, the two views, language, and the profile menu. */
+export function TopBar({ right }: { right?: ReactNode }) {
+  const { user, view, setView, openId } = useSession();
+  const t = useT();
+  const views = user?.role === 'patient' ? VIEWS.patient : VIEWS.staff;
+  return (
+    <header className="bar">
+      <div className="bar__row">
+        {user && user.role !== 'patient' && <NavMenu />}
+        <div className="bar__brand"><Logo size={36} /><span>Nirantar<small>{t('Diabetes record')}</small></span></div>
+        <nav className="bar__links" aria-label={t('Views')}>
+          {views.map(v => <button key={v.view} type="button" aria-current={!openId && view === v.view ? 'page' : undefined} className={!openId && view === v.view ? 'is-on' : ''} onClick={() => { setView(v.view); window.scrollTo({ top: 0 }); }}>{t(v.label)}</button>)}
+        </nav>
         <div className="grow" />
         {right}
-        <span className="bar__mob"><LangToggle /></span>
-        <button className="bar__me" onClick={logout} aria-label={t('Log out')} title={t('Log out')}><span className="avatar avatar--sm">{initial}</span></button>
-      </header>
-      <nav className="tabbar" aria-label={t('Main menu')}>
-        {items.map(i => { const Icon = ICONS[i.icon]; return (
-          <button key={i.k} type="button" className={cx(active === i.k && 'is-on')} aria-current={active === i.k ? 'page' : undefined} onClick={() => go(i.k)}><Icon size={20} /><span>{t(i.label)}</span></button>
-        ); })}
-      </nav>
-    </>
+        <LangToggle />
+        <ProfileMenu />
+      </div>
+    </header>
   );
 }
 

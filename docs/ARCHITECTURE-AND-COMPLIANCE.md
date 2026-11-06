@@ -62,3 +62,22 @@ These are not things code alone can provide.
 Say it is a sandbox that follows the same steps as ABDM, with stand-ins where ABDM is not available to us, and synthetic data.
 Do not describe it as ABDM-certified or compliant with any law: it has the technical controls above, and the organisational
 and legal parts in section 3 are still to do.
+
+## Scale: one lakh (100,000) and more registered patients
+
+What was done and measured, and what was not.
+
+**Measured.** `server/scale.test.ts` inserts 100,000 registered patients into one hospital space and calls the real routes. On the in-memory test database (single process, no network) it took: first page of the directory 50 ms, a page at offset 99,000 209 ms, name search 179 ms, ABHA search 167 ms, the hospital's own list 85 ms. These prove the queries are paged and counted by the database. They are not production latency numbers. Re-run the test against a Neon branch with the same rows before quoting speeds.
+
+**Changes for scale.**
+- The patient directory and the hospital's registered list are searched, counted and paged in SQL (`limit`/`offset`, at most 50 and 100 per page). Nothing loads every patient into the server or the browser.
+- Indexes: `registered_workspace_hfr` (workspace, hospital, created), `registered_workspace_name` (workspace, name), `sim_consents_hiu_abha` (workspace, requester, ABHA), with the existing unique (workspace, ABHA). Migration `0010_directory_indexes`.
+- Consent lookups are now limited to the ABHA numbers on the page instead of every request the hospital ever made.
+- The cap of 25 registered patients per sandbox space is a sandbox setting. A hospital deployment sets `MAX_REGISTERED_PER_SPACE` to a high number, or `0` for no cap.
+
+**Not done, and where it will hurt first.**
+- Name search uses `lower(name) LIKE '%…%'`. That scans one hospital's rows. It is fine at 100,000 rows and slow at several million; the fix is a trigram index or a search service.
+- Uploaded files are stored as rows in Postgres (`file_blobs`). At scale they belong in object storage with the database keeping only the reference.
+- The access log and the gateway message log grow without bound in a hospital space. They need partitioning by month and a retention job. The daily clean-up only trims the sandbox's own tables.
+- A patient's own record (values, documents, visits) is loaded whole when opened. A patient with thousands of values needs paging there too.
+- Neon's free tier, the serverless function limits and the per-IP rate limits are sandbox settings, not capacity planning. No load test has been run through the deployed site.

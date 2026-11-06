@@ -7,7 +7,6 @@ import { useSession } from '@/session';
 import { originalPdfUrl } from '@/domain/originals';
 import { Button, Card, CardHead, SkeletonCard, SourceChip } from '@/ui/primitives';
 import { useUi } from '@/ui/store';
-import { Tabs } from '@/ui/Tabs';
 import { LoadError, TopBar } from './Chrome';
 import { UploadDialog } from './UploadDocument';
 import { ChecksList, buildChecks } from './Checks';
@@ -21,7 +20,6 @@ export default function NursePatient() {
   const close = useSession(s => s.closePatient);
   const toast = useUi(s => s.toast);
   const openId = useSession(s => s.openId)!;
-  const [tab, setTab] = useState<'vitals' | 'checks' | 'care'>('vitals');
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,10 +60,7 @@ export default function NursePatient() {
           <div className="phead__last"><span className="eyebrow">Last visit</span><b>{fmtDate(p.lastVisitDate)}</b></div>
         </div></Card>
 
-        <Tabs label="Parts of the record" value={tab} onChange={setTab} tabs={[
-          { k: 'vitals', label: 'Record vitals' }, { k: 'checks', label: 'Checks and reports' }, { k: 'care', label: 'Summary and care' },
-        ]} />
-        {tab === 'vitals' && <div className="cols cols--even">
+        <div className="cols cols--even">
           <Card accent="cerulean">
             <CardHead title="Record today’s vitals" icon={<HeartPulse size={16} />} right={vit ? <span className="chip chip--sage"><CheckCircle2 size={12} />Last saved {fmtDate(vit.date)}</span> : <span className="chip chip--dashed">Not recorded yet</span>} />
             <form className="card__body vitals" onSubmit={submit}>
@@ -84,6 +79,11 @@ export default function NursePatient() {
             </form>
           </Card>
 
+          <div className="stack" style={{ gap: 18 }}>
+            <Card accent="sage">
+              <CardHead title="Checks — on record and not on record" right={<Button size="sm" variant="secondary" onClick={() => setRecording(true)} icon={<ClipboardPlus size={14} />}>Record a result</Button>} />
+              <ChecksList sections={buildChecks(r)} />
+            </Card>
             <Card accent="terracotta">
               <CardHead title="Last visit at a glance" />
               <div className="card__body">
@@ -96,19 +96,12 @@ export default function NursePatient() {
                 <div style={{ marginTop: 8 }}><SourceChip citation={{ id: `nav:${rx.id}`, docId: rx.id, field: 'advice', quote: '' }} patientId={pid} label="Open slip" /></div>
               </div>
             </Card>
-        </div>}
-        {tab === 'checks' && <div className="cols cols--even">
-            <Card accent="sage">
-              <CardHead title="Checks — on record and not on record" right={<Button size="sm" variant="secondary" onClick={() => setRecording(true)} icon={<ClipboardPlus size={14} />}>Record a result</Button>} />
-              <ChecksList sections={buildChecks(r)} />
-            </Card>
+          </div>
+        </div>
         <ReviewCard patientId={pid} onUpload={() => setUploading(true)} />
-        </div>}
-        {tab === 'care' && <div className="cols cols--even">
         <SummaryBlock patientId={pid} />
         <CounsellingCard patientId={pid} role="nurse" />
         <CorrectionCard patientId={pid} role="nurse" />
-        </div>}
       </main>
       {uploading && <UploadDialog patientId={pid} onClose={() => setUploading(false)} />}
       {recording && <RecordDialog patientId={pid} onClose={() => setRecording(false)} />}

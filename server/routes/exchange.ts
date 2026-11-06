@@ -1,6 +1,7 @@
+import { todayIST } from '../time';
 import { Hono } from 'hono';
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { ExchangeConsent, ReceivedRecordItem, ReceivedRecordView } from '../../src/domain/exchange';
 import { createHash } from 'node:crypto';
@@ -97,13 +98,28 @@ export function exchangeRoutes(ctx: AppCtx) {
    */
   r.get('/patients/directory', requireUser('doctor', 'nurse'), async c => {
     const me = c.get('user'); const hfr = me.hfrId ?? '';
-    const known = [
-      ...parseRecord().patients.map(p => ({ id: p.id, name: p.name, abha: digits(p.abhaId), holder: HOME_HFR })),
-      ...(await db.select().from(registeredPatients).where(eq(registeredPatients.workspace, me.workspace))).map(p => ({ id: p.id, name: p.name, abha: p.abha, holder: p.hfrId })),
-    ];
-    const asks = await db.select().from(simConsents).where(and(eq(simConsents.hiuHfr, hfr), eq(simConsents.workspace, me.workspace)));
+    const q = z.object({ q: z.string().trim().max(60).optional(), held: z.enum(['1']).optional(), limit: z.coerce.number().int().min(1).max(50).default(25), offset: z.coerce.number().int().min(0).max(1_000_000).default(0) }).safeParse(c.req.query());
+    if (!q.success) return c.json({ error: 'bad_request' }, 400);
+    const { q: term = '', held, limit, offset } = q.data;
+    const needle = term.toLowerCase(); const digitsOnly = digits(term);
+    // The two sample patients are filtered here; registered patients are filtered, counted and paged by the database.
+    const samples = parseRecord().patients.map(p => ({ id: p.id, name: p.name, abha: digits(p.abhaId), holder: HOME_HFR }))
+      .filter(p => (!held || p.holder === hfr) && (!needle || p.name.toLowerCase().includes(needle) || (digitsOnly.length >= 3 && p.abha.startsWith(digitsOnly))));
+    const like_ = needle.replace(/[\\%_]/g, m => '\\' + m); // a typed % or _ is a letter, not a wildcard
+    const where = and(eq(registeredPatients.workspace, me.workspace), held ? eq(registeredPatients.hfrId, hfr) : undefined,
+      needle ? or(like(sql`lower(${registeredPatients.name})`, `%${like_}%`), digitsOnly.length >= 3 ? like(registeredPatients.abha, `${digitsOnly}%`) : undefined) : undefined);
+    const [{ n: registeredTotal }] = await db.select({ n: count() }).from(registeredPatients).where(where);
+    const total = samples.length + registeredTotal;
+    // samples come first, so a page is a slice of samples followed by a slice of the registered rows
+    const fromSamples = samples.slice(offset, offset + limit);
+    const need = limit - fromSamples.length;
+    const rows = need > 0 ? await db.select().from(registeredPatients).where(where).orderBy(asc(registeredPatients.name), asc(registeredPatients.id)).limit(need).offset(Math.max(0, offset - samples.length)) : [];
+    const known = [...fromSamples, ...rows.map(p => ({ id: p.id, name: p.name, abha: p.abha, holder: p.hfrId }))];
+    const abhas = known.map(k => k.abha);
+    const asks = abhas.length ? await db.select().from(simConsents).where(and(eq(simConsents.hiuHfr, hfr), eq(simConsents.workspace, me.workspace), inArray(simConsents.abha, abhas))) : [];
     const { received } = await receivedIndex(asks.map(a => a.id));
     return c.json({
+      total, offset, limit,
       items: known.map(k => {
         const mine = asks.filter(a => a.abha === k.abha).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
         const access = k.holder === hfr ? 'held' : mine ? effective(mine) : 'none';
@@ -157,7 +173,9 @@ export function exchangeRoutes(ctx: AppCtx) {
       // The sample patients' slips are dated after today, so the range ends at the later of now and the record's own last date.
       const holder = (row.patientId && await holderOf(db, baseOf(row.patientId))) || HOME_HFR;
       const lastRecord = row.patientId ? patientOf(baseOf(row.patientId))?.asOf : undefined;
-      const rangeEnd = lastRecord && new Date(lastRecord).getTime() > now.getTime() ? new Date(lastRecord) : now;
+      // Record dates are Indian calendar days. The range must reach the end of today in India, or a value written after midnight there is left out until the UTC date catches up.
+      const endOfIndianDay = new Date(`${todayIST(now)}T23:59:59+05:30`);
+      const rangeEnd = [now, endOfIndianDay, ...(lastRecord ? [new Date(lastRecord)] : [])].reduce((a, b) => (b.getTime() > a.getTime() ? b : a));
       const art: Artefact = {
         consentId: row.id, createdAt: now.toISOString(), status: 'GRANTED', purpose: { text: 'care management', code: row.purposeCode, refUri: 'http://terminology.hl7.org/ValueSet/v3-PurposeOfUse' },
         patient: { id: row.abha }, hip: { id: holder }, hiu: { id: row.hiuHfr, name: row.hiuName }, requester: { name: row.requesterName, identifier: { type: 'REGNO', value: row.requesterReg } },
@@ -165,7 +183,7 @@ export function exchangeRoutes(ctx: AppCtx) {
         consentExpiry: expiresAt.toISOString(),
       };
       const { json, signature } = sign(art);
-      await db.update(simConsents).set({ status: 'granted', decidedAt: now, expiresAt, validityDays: validity, keepDays: keep, dataEraseAt: eraseAt, dateTo: now, hiTypes: types.join(','), artefact: json, signature }).where(eq(simConsents.id, row.id));
+      await db.update(simConsents).set({ status: 'granted', decidedAt: now, expiresAt, validityDays: validity, keepDays: keep, dataEraseAt: eraseAt, dateTo: rangeEnd, hiTypes: types.join(','), artefact: json, signature }).where(eq(simConsents.id, row.id));
       await msg(ws, row.id, 'phr-app', 'gateway', '/v3/consent-requests/approve', `The patient allowed ${types.length} of ${asked.length} kinds of record`);
       await db.insert(hipConsentCopies).values({ consentId: row.id, hipHfr: holder, workspace: ws, artefact: json, signature, status: 'GRANTED' }).onConflictDoNothing();
       await msg(ws, row.id, 'gateway', 'hip', '/v3/consent/hip/notify', 'The sending hospital saved its own copy of the signed consent');

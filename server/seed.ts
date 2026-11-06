@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Db } from './db/client';
 import { eq, inArray, like, lt } from 'drizzle-orm';
-import { abdmTransfers, consentEvents, consents, documents, editRequests, educationLog, exchangeKeys, gatewayMessages, hipConsentCopies, opdSettings, opdVisits, patientAdvice, sessions, factVerifications, fileBlobs, observations, observationVersions, patients, receivedRecords, recordAnnotations, registeredPatients, registrationDrafts, simCareContexts, simConsents, simTransfers, users, workspaces } from './db/schema';
+import { profilePhotos, abdmTransfers, consentEvents, consents, documents, editRequests, educationLog, exchangeKeys, gatewayMessages, hipConsentCopies, opdSettings, opdVisits, patientAdvice, sessions, factVerifications, fileBlobs, observations, observationVersions, patients, receivedRecords, recordAnnotations, registeredPatients, registrationDrafts, simCareContexts, simConsents, simTransfers, users, workspaces } from './db/schema';
 import { parseRecord } from './core/parse';
 
 export const FACILITY_HFR = 'IN2900011882';
@@ -62,6 +62,7 @@ export async function clearIdleWorkspaces(db: Db, now = new Date()): Promise<num
 }
 
 export async function removeWorkspace(db: Db, ws: string): Promise<void> {
+  await db.delete(profilePhotos).where(eq(profilePhotos.workspace, ws));
   const mine = `%~${ws}`;
   const docs = await db.select({ id: documents.id }).from(documents).where(like(documents.patientId, mine));
   if (docs.length) await db.delete(fileBlobs).where(inArray(fileBlobs.id, docs.map(d => d.id)));

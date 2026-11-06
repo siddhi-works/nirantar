@@ -2,11 +2,12 @@ import { Bell, CalendarClock, CalendarDays, Clock } from 'lucide-react';
 import { APPOINTMENTS, PATIENT_APPOINTMENT, PATIENT_NOTES, SHIFTS, STAFF_NOTES, sampleDay, sampleTime, type SampleNote } from '@/data/sample';
 import { useT } from '@/i18n';
 import { Card, CardHead, cx } from '@/ui/primitives';
+import { ScopeNote } from '@/ui/ScopeNote';
 
-const Sample = () => { const t = useT(); return <span className="chip chip--dashed" title={t('Made-up content to show how this screen works. It is not connected to the queue or to any record.')}>{t('Sample')}</span>; };
+const Sample = () => { const t = useT(); return <span className="chip chip--dashed">{t('Demo')}</span>; };
+const Demo = () => { const t = useT(); return <ScopeNote kind="demo">{t('Demo content for how this screen will look. It is made up and is not connected to the queue or to any record.')}</ScopeNote>; };
 
 function Notes({ items, title }: { items: SampleNote[]; title: string }) {
-  const t = useT();
   return (
     <Card accent="cerulean">
       <CardHead title={title} icon={<Bell size={16} />} right={<Sample />} />
@@ -19,7 +20,7 @@ function Notes({ items, title }: { items: SampleNote[]; title: string }) {
           </li>
         ))}
       </ul>
-      <p className="hint" style={{ padding: '0 18px 14px' }}>{t('Sample notifications. Real ones will come from the hospital.')}</p>
+      <Demo />
     </Card>
   );
 }
@@ -38,6 +39,7 @@ export function ScheduleCard() {
           <li key={s.who}><span className="grow"><b translate="no">{s.who}</b><small>{s.role} · {s.room}</small></span><span className="num muted" translate="no">{s.hours}</span></li>
         ))}
       </ul>
+      <Demo />
     </Card>
   );
 }
@@ -55,7 +57,7 @@ export function AppointmentsCard() {
             <span className="grow"><b translate="no">{a.name}</b><small>{a.reason} · {a.with}</small></span></li>
         ))}
       </ul>
-      <p className="hint" style={{ padding: '0 18px 14px' }}>{t('Sample appointments with made-up names. The OPD queue only counts patients who joined it here.')}</p>
+      <Demo />
     </Card>
   );
 }
@@ -71,6 +73,7 @@ export function NextVisitCard() {
         <b className="num" style={{ fontSize: 20 }} translate="no">{sampleDay(a.when)}, {sampleTime(a.when)}</b>
         <p translate="no">{a.with} · {a.where}</p>
         <p className="hint">{a.note}</p>
+        <Demo />
       </div>
     </Card>
   );

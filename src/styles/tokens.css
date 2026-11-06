@@ -1,37 +1,38 @@
 :root {
   /* PRD §8.8 colour tokens */
-  --canvas: #EEF2F6;
+  --canvas: #F3F3F0;
   --card: #FFFFFF;
-  --ink: #12263F;
-  --muted: #4A5D70;
-  --divider: #D6DFE8;
-  --terracotta: #C2410C;
-  --sage: #1E7B4F;
-  --cerulean: #1B5FAA;
-  --tint: #EAF0F6;
-  --warm: #FDEEDD;
+  --ink: #1E3A4C;
+  --muted: #55666F;
+  --divider: #DCE2E1;
+  --terracotta: #B4472B;
+  --sage: #2E7D5B;
+  --cerulean: #357F78;
+  --tint: #E8EEEC;
+  --warm: #F7E8E0;
 
   /* AA-safe text variants of the accent colours (the base tokens fail 4.5:1 on white as text) */
-  --terracotta-ink: #9A3412;
-  --sage-ink: #17603D;
-  --cerulean-ink: #164C8A;
-  --cerulean-tint: #E6EFFA;
-  --sage-tint: #E2F2E9;
-  --ink-2: #1D3B5D;
-  --ink-soft: #324A62;
+  --terracotta-ink: #98391F;
+  --sage-ink: #1F6244;
+  --cerulean-ink: #286A64;
+  --cerulean-tint: #E6F1EE;
+  --sage-tint: #E2F1E9;
+  --ink-2: #2B4F66;
+  --ink-soft: #3A5260;
   --paper: #FFFFFF;
-  --line: #E1E8EF;
+  --line: #E4E9E8;
 
-  --font-display: 'IBM Plex Sans', 'IBM Plex Sans Devanagari', system-ui, sans-serif;
-  --font-body: 'IBM Plex Sans', 'IBM Plex Sans Devanagari', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Manrope', 'IBM Plex Sans Devanagari', system-ui, sans-serif;
+  --font-body: 'Public Sans', 'IBM Plex Sans Devanagari', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --radius: 6px;
-  --radius-lg: 10px;
+  --radius: 10px;
+  --radius-lg: 16px;
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
   --shadow-sm: 0 1px 2px rgba(18, 38, 63, .06);
   --shadow-md: 0 6px 24px rgba(18, 38, 63, .10);
   --shadow-lg: 0 16px 48px rgba(18, 38, 63, .18);
   --side-w: 248px;
   --top-h: 60px;
+  --teal: #4FA8A0; --teal-deep: #357F78; --teal-pale: #E6F1EE; --teal-soft: #C9E4DE; --navy: #1E3A4C; --button-ink: #173140; --warm-grey: #E8E6E1;
   --ease: cubic-bezier(.2, .7, .2, 1);
 }

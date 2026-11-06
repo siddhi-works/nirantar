@@ -51,7 +51,16 @@ export function OpdQueueCard() {
                 <Button size="sm" variant="secondary" disabled={busy || !mins}>Save</Button>
               </form>
             )}
-            {data.items.length === 0 ? <p className="hint">No patient is in today’s queue yet. A patient joins by scanning the hospital QR in their app, or you can add them below.</p> : (
+            {data.items.length === 0 ? (
+              <div className="stack" style={{ gap: 8 }}>
+                <p className="hint">No patient is in today’s queue yet. A patient joins by scanning the hospital QR in their app, or you can add them below.</p>
+                <Button size="sm" variant="secondary" disabled={busy} onClick={() => void run(async () => {
+                  const held = (await api.directory({ held: true, limit: 50 })).items.filter(p => p.access === 'held');
+                  for (const p of held) await api.opdWalkIn(p.abha);
+                  q.refetch();
+                }, 'The sample patients are in the queue.')}>Add the sample patients to today’s queue</Button>
+              </div>
+            ) : (
               <ul className="xlist opd__list">
                 {data.items.map(v => (
                   <li key={v.id} className={cx(v.status === 'ongoing' && 'is-now')}>

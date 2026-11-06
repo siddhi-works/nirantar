@@ -8,6 +8,8 @@ export interface SessionUser {
   name: string;
   line: string;
   patientId?: string;
+  /** When this person's photo was last set; absent when there is none. */
+  photoVersion?: string | null;
   /** The hospital this person works at (staff only). */
   hfrId?: string;
 }

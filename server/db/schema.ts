@@ -181,7 +181,7 @@ export const simConsents = pgTable('sim_consents', {
   /** The signed artefact, set when the patient grants. The receiver and the sender each keep a copy. */
   artefact: text('artefact'),
   signature: text('signature'),
-}, t => [index('sim_consents_patient').on(t.patientId), index('sim_consents_hiu').on(t.hiuHfr)]);
+}, t => [index('sim_consents_patient').on(t.patientId), index('sim_consents_hiu').on(t.hiuHfr), index('sim_consents_hiu_abha').on(t.workspace, t.hiuHfr, t.abha)]);
 
 /** The sending hospital's own copy of a consent artefact, saved when the consent manager notifies it. */
 export const hipConsentCopies = pgTable('hip_consent_copies', {
@@ -286,7 +286,11 @@ export const registeredPatients = pgTable('registered_patients', {
   byUserId: text('by_user_id').notNull(),
   byLabel: text('by_label').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),
-}, t => [uniqueIndex('registered_workspace_abha').on(t.workspace, t.abha)]);
+}, t => [
+  uniqueIndex('registered_workspace_abha').on(t.workspace, t.abha),
+  index('registered_workspace_hfr').on(t.workspace, t.hfrId, t.createdAt), // a hospital's own list, newest first
+  index('registered_workspace_name').on(t.workspace, t.name), // the alphabetical page of the directory
+]);
 
 /** Every time a patient gave or withdrew a consent. Append only: the current state is on the patient, this is the history. */
 export const consentEvents = pgTable('consent_events', {
@@ -397,6 +401,14 @@ export const gatewayMessages = pgTable('gateway_messages', {
   summary: text('summary').notNull(), // what it was about, never the health data itself
   at: ts('at').notNull().defaultNow(),
 }, t => [index('gateway_messages_ws').on(t.workspace)]);
+
+/** A small profile picture, kept per tester space so the shared sample sign-ins do not share a photo. A square JPEG of at most 150 KB. */
+export const profilePhotos = pgTable('profile_photos', {
+  workspace: text('workspace').notNull(),
+  userId: text('user_id').notNull(),
+  data: text('data').notNull(), // base64 JPEG
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.workspace, t.userId] })]);
 
 export const workspaces = pgTable('workspaces', {
   id: text('id').primaryKey(),
