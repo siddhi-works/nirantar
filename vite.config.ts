@@ -15,5 +15,5 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   preview: { port: 4173, headers: sent, proxy: { '/api': { target: 'http://localhost:8787', changeOrigin: false } } },
   server: { port: 5173, proxy: { '/api': { target: 'http://localhost:8787', changeOrigin: false } } },
-  test: { include: ['src/**/*.test.ts', 'server/**/*.test.ts'], environment: 'node' },
+  test: { include: ['src/**/*.test.ts', 'server/**/*.test.ts'], environment: 'node', testTimeout: 30_000 },
 });

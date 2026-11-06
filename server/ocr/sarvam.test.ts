@@ -4,7 +4,7 @@ import { CONTRACT, SarvamOcr } from './sarvam';
 import { OcrUnavailable } from './provider';
 
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } });
-const zip = () => new Response(zipSync({ 'page-2.md': strToU8('FBS 150'), 'page-10.md': strToU8('HbA1c 7.0'), 'page-1.md': strToU8('BP 120/80'), 'readme.bin': strToU8('x') }));
+const zip = () => new Response(zipSync({ 'manifest.json': strToU8('{}'), 'document.jpg/document.md': strToU8('BP 120/80\nFBS 150'), 'document.jpg/metadata/page_001.json': strToU8('{}') }));
 
 function fake(states: string[]): { f: typeof fetch; calls: string[]; keys: (string | null)[] } {
   const calls: string[] = []; const keys: (string | null)[] = []; let i = 0;
@@ -12,8 +12,8 @@ function fake(states: string[]): { f: typeof fetch; calls: string[]; keys: (stri
     const url = String(input); calls.push(`${init?.method ?? 'GET'} ${url.replace(CONTRACT.base, '')}`);
     keys.push(new Headers(init?.headers).get(CONTRACT.keyHeader));
     if (url.endsWith(CONTRACT.submit)) return json({ job_id: 'J1' });
-    if (url.endsWith(CONTRACT.status('J1'))) return json({ job_state: states[Math.min(i++, states.length - 1)] });
-    if (url.endsWith(CONTRACT.download('J1'))) return json({ download_url: 'https://files.example/out.zip' });
+    if (url.endsWith(CONTRACT.status('J1'))) return json({ status: states[Math.min(i++, states.length - 1)] });
+    if (url.endsWith(CONTRACT.download('J1'))) return json({ method: 'GET', url: 'https://files.example/out.zip' });
     if (url === 'https://files.example/out.zip') return zip();
     return json({}, 404);
   }) as typeof fetch;
@@ -21,21 +21,22 @@ function fake(states: string[]): { f: typeof fetch; calls: string[]; keys: (stri
 }
 
 describe('Sarvam adapter (against a stand-in for the API, not the live service)', () => {
-  it('submits, waits for completion, downloads and returns pages in natural order', async () => {
-    const { f, calls, keys } = fake(['Running', 'Running', 'Completed']);
+  it('submits, waits for completion, downloads and returns the text', async () => {
+    const { f, calls, keys } = fake(['running', 'running', 'completed']);
     const pages = await new SarvamOcr({ key: 'k', fetchImpl: f, pollMs: 1 }).recognise(new Uint8Array([1, 2, 3]), 'application/pdf');
-    expect(pages).toEqual(['BP 120/80', 'FBS 150', 'HbA1c 7.0']);
+    expect(pages).toEqual(['BP 120/80\nFBS 150']);
+    expect(calls[0]).toBe('POST /doc-ai/v1/job/parse');
     expect(calls.filter(c => c.endsWith(CONTRACT.status('J1'))).length).toBe(3);
     expect(keys[0]).toBe('k');
   });
 
   it('reports a failed job as a plain message', async () => {
-    const { f } = fake(['Failed']);
+    const { f } = fake(['failed']);
     await expect(new SarvamOcr({ key: 'k', fetchImpl: f, pollMs: 1 }).recognise(new Uint8Array([1]), 'image/png')).rejects.toThrow(/could not read/);
   });
 
   it('gives up after the time limit', async () => {
-    const { f } = fake(['Running']);
+    const { f } = fake(['running']);
     await expect(new SarvamOcr({ key: 'k', fetchImpl: f, pollMs: 5, timeoutMs: 30 }).recognise(new Uint8Array([1]), 'image/png')).rejects.toBeInstanceOf(OcrUnavailable);
   });
 

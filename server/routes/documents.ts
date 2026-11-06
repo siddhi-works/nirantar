@@ -18,9 +18,11 @@ export function documentRoutes(ctx: AppCtx) {
   async function item(d: typeof documents.$inferSelect): Promise<DocumentItem> {
     const [vals] = await db.select({ n: count() }).from(observations).where(eq(observations.documentId, d.id));
     const [wait] = await db.select({ n: count() }).from(observations).where(and(eq(observations.documentId, d.id), eq(observations.status, 'extracted')));
+    // A read that never finished (the host stopped it part-way) must not show a spinner forever.
+    const stuck = (d.status === 'running' || d.status === 'queued') && Date.now() - d.createdAt.getTime() > 2 * 60_000;
     return {
-      id: d.id, docType: d.docType, fileName: d.fileName, mime: d.mime, size: d.size, origin: d.origin as 'staff' | 'patient', status: d.status as DocumentItem['status'],
-      method: d.method as DocumentItem['method'], pages: d.pages, error: d.error, by: d.byLabel, at: d.createdAt.toISOString(),
+      id: d.id, docType: d.docType, fileName: d.fileName, mime: d.mime, size: d.size, origin: d.origin as 'staff' | 'patient', status: (stuck ? 'failed' : d.status) as DocumentItem['status'],
+      method: d.method as DocumentItem['method'], pages: d.pages, error: stuck ? 'Reading this file did not finish. Upload it again.' : d.error, by: d.byLabel, at: d.createdAt.toISOString(),
       syncStatus: d.syncStatus as 'pending' | 'pushed', values: vals?.n ?? 0, waiting: wait?.n ?? 0,
     };
   }
@@ -28,6 +30,7 @@ export function documentRoutes(ctx: AppCtx) {
   /** The most uploads kept per patient, so one visitor cannot fill the shared database for everyone. */
   const MAX_DOCUMENTS = 8;
   const MAX_WORKSPACE_BYTES = 24 * 1024 * 1024; // all of one tester's uploads together
+  const MAX_TOTAL_BYTES = 200 * 1024 * 1024; // every tester together, well inside a free database
 
   async function ingest(c: Parameters<typeof open>[0], patientId: string, bytes: Uint8Array, name: string, docType: string) {
     const mime = sniff(bytes);
@@ -38,6 +41,8 @@ export function documentRoutes(ctx: AppCtx) {
     if ((have?.n ?? 0) >= MAX_DOCUMENTS) return c.json({ error: 'invalid', message: `This site keeps up to ${MAX_DOCUMENTS} uploads per patient. Choose "Start with fresh sample data" to clear them.` }, 409);
     const [used] = await db.select({ n: sum(documents.size) }).from(documents).where(like(documents.patientId, `%~${user.workspace}`));
     if (Number(used?.n ?? 0) + bytes.length > MAX_WORKSPACE_BYTES) return c.json({ error: 'invalid', message: 'Your sample space is full. Choose "Start with fresh sample data" to clear it.' }, 409);
+    const [all] = await db.select({ n: sum(documents.size) }).from(documents);
+    if (Number(all?.n ?? 0) + bytes.length > MAX_TOTAL_BYTES) return c.json({ error: 'invalid', message: 'The site is holding as many test uploads as it can right now. Try again later.' }, 503);
     const id = randomUUID();
     await files.put(id, bytes);
     await db.insert(documents).values({

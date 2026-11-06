@@ -46,7 +46,7 @@ async function http<T>(path: string, init: { method?: 'GET' | 'POST'; body?: unk
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && path !== '/auth/otp/verify') unauthorized.forEach(l => l());
-    throw new ApiError(res.status, typeof data.message === 'string' ? data.message : res.status === 429 ? 'Too many attempts. Wait a few minutes and try again.' : res.status === 404 ? 'This record is not available to you, or no longer exists.' : 'Something went wrong. Try again.');
+    throw new ApiError(res.status, typeof data.message === 'string' ? data.message : res.status === 429 ? 'Too many attempts. Wait a few minutes and try again.' : res.status === 404 ? (path.startsWith('/patients') ? 'This record is not available to you, or no longer exists.' : 'The service did not answer as expected. Reload the page and try again.') : res.status >= 500 ? 'The service had a problem. Try again in a moment.' : 'Something went wrong. Try again.');
   }
   return data as T;
 }

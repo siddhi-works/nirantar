@@ -1,8 +1,8 @@
 /**
  * Sarvam translation and speech.
  *
- * UNVERIFIED AGAINST THE LIVE API: the request and response shapes below are my best reading of Sarvam's public
- * description and could not be checked from the environment this was written in. Everything specific to Sarvam is in
+ * Written from Sarvam's published reference (translate: POST /translate; speech: POST /text-to-speech, whose language
+ * field is `language_code`). Not yet run with a live key. Everything specific to Sarvam is in
  * CONTRACT. Run `npm run sarvam:check -- translate "text"` or `-- speak "text"` with a real SARVAM_API_KEY to see
  * what the API actually returns, then correct CONTRACT in one place.
  */
@@ -15,7 +15,7 @@ export const CONTRACT = {
   translateBody: (text: string, target: Lang) => ({ input: text, source_language_code: 'en-IN', target_language_code: target, model: 'mayura:v1', mode: 'formal' }),
   translated: (b: Record<string, unknown>) => (typeof b.translated_text === 'string' ? b.translated_text : ''),
   speechPath: '/text-to-speech',
-  speechBody: (text: string, lang: Lang) => ({ text, target_language_code: lang, model: 'bulbul:v2', speaker: 'anushka' }),
+  speechBody: (text: string, lang: Lang) => ({ text, language_code: lang, model: 'bulbul:v3', speaker: 'ritu' }),
   audio: (b: Record<string, unknown>) => (Array.isArray(b.audios) && typeof b.audios[0] === 'string' ? (b.audios[0] as string) : ''),
   speechMime: 'audio/wav',
 };

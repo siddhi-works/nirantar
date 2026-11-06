@@ -58,7 +58,7 @@ export default function DoctorPatient() {
               </div>
             </div>
             <div className="row" style={{ gap: 8 }}><a className="btn btn--secondary" href={originalPdfUrl(pid)} target="_blank" rel="noopener noreferrer"><ExternalLink size={15} />View original document</a><Button onClick={() => setUploading(true)} icon={<FileUp size={15} />}>Upload document</Button></div>
-            <div className="phead__last"><span className="eyebrow">Last visit</span><b>{fmtDate(p.lastVisitDate)}</b><small>visit {r.visits.length} of {r.visits.length} on record</small></div>
+            <div className="phead__last"><span className="eyebrow">Last visit</span><b>{fmtDate(p.lastVisitDate)}</b><small>{r.visits.length} visits on record</small></div>
           </div>
         </Card>
 

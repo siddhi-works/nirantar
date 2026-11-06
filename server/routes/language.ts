@@ -1,3 +1,4 @@
+import { logError } from '../log';
 import { Hono } from 'hono';
 import { createHash } from 'node:crypto';
 import { inArray } from 'drizzle-orm';
@@ -32,7 +33,7 @@ export function languageRoutes({ db, requireUser, translator, speaker }: AppCtx)
       await record(db, limitKey, true);
       await record(db, 'tr:*', true);
       let out: string[];
-      try { out = await translator.translate(missing, target as 'hi-IN'); } catch (e) { console.error('translate failed', e); return c.json({ error: 'unavailable' }, 502); }
+      try { out = await translator.translate(missing, target as 'hi-IN'); } catch (e) { logError('translate failed', e); return c.json({ error: 'unavailable' }, 502); }
       for (let i = 0; i < missing.length; i++) {
         byKey.set(keyOf(target, missing[i]), out[i]);
         await db.insert(translations).values({ key: keyOf(target, missing[i]), target, source: missing[i], translated: out[i] }).onConflictDoNothing();
@@ -50,7 +51,7 @@ export function languageRoutes({ db, requireUser, translator, speaker }: AppCtx)
     if (await countRequests(db, limitKey) >= SPEECH_LIMIT || await countRequests(db, 'sp:*') >= GLOBAL.speech) return c.json({ error: 'too_many_attempts' }, 429);
     await record(db, limitKey, true);
     await record(db, 'sp:*', true);
-    try { return c.json(await speaker.speak(body.data.text, body.data.lang)); } catch (e) { console.error('speech failed', e); return c.json({ error: 'unavailable' }, 502); }
+    try { return c.json(await speaker.speak(body.data.text, body.data.lang)); } catch (e) { logError('speech failed', e); return c.json({ error: 'unavailable' }, 502); }
   });
 
   return r;

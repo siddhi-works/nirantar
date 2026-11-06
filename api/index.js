@@ -55319,12 +55319,11 @@ var baseOf = (scoped) => scoped.split("~")[0];
 var workspaceOf = (scoped) => scoped.split("~")[1] ?? "";
 var IDLE_DAYS = 14;
 async function ensureWorkspace(db, ws2) {
-  const known = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, ws2)).limit(1);
-  if (known.length) {
+  const created = await db.insert(workspaces).values({ id: ws2 }).onConflictDoNothing().returning({ id: workspaces.id });
+  if (!created.length) {
     await db.update(workspaces).set({ seenAt: /* @__PURE__ */ new Date() }).where(eq(workspaces.id, ws2));
     return;
   }
-  await db.insert(workspaces).values({ id: ws2 }).onConflictDoNothing();
   const first = parseRecord().patients[0];
   await db.insert(simConsents).values({
     id: randomUUID(),
@@ -55338,7 +55337,6 @@ async function ensureWorkspace(db, ws2) {
     validityDays: 30,
     status: "requested"
   });
-  if (Math.random() < 0.1) await clearIdleWorkspaces(db);
 }
 async function clearIdleWorkspaces(db, now = /* @__PURE__ */ new Date()) {
   const cutoff = new Date(now.getTime() - IDLE_DAYS * 864e5);
@@ -75146,7 +75144,7 @@ var GENERIC_AUTH_ERROR = "These details or the code are not correct.";
 
 // server/auth/ratelimit.ts
 var WINDOW_MS = 10 * 60 * 1e3;
-var LIMITS = { failuresPerId: 5, failuresPerIp: 20, requestsPerId: 5 };
+var LIMITS = { failuresPerId: 5, failuresPerIp: 20, requestsPerId: 5, signInsPerIp: 150 };
 var GLOBAL = { translate: 100, speech: 60, ocr: 20 };
 var since = () => new Date(Date.now() - WINDOW_MS);
 async function countFailures(db, key) {
@@ -75198,6 +75196,8 @@ function authRoutes({ db, config: config3, auth, requireUser }) {
       await record2(db, ipKey, false);
       return c3.json({ error: "invalid_credentials", message: GENERIC_AUTH_ERROR }, 401);
     }
+    if (await countRequests(db, `in:${ip}`) >= LIMITS.signInsPerIp) return c3.json({ error: "too_many_attempts" }, 429);
+    await record2(db, `in:${ip}`, true);
     const kept = getCookie(c3, WS_COOKIE);
     const ws2 = kept && WORKSPACE_RE.test(kept) ? kept : newWorkspaceId();
     await ensureWorkspace(db, ws2);
@@ -76507,6 +76507,13 @@ var DOC_TYPES = [
 // server/routes/documents.ts
 import { readFile as readFile2 } from "node:fs/promises";
 
+// server/log.ts
+function logError(where, err2) {
+  const e2 = err2;
+  const reason = String(e2?.cause?.message ?? e2?.message ?? "").split("\n")[0].replace(/\bparams?:.*$/i, "").slice(0, 160);
+  console.error(`${where}: ${e2?.name ?? "Error"}${e2?.code ?? e2?.cause?.code ? ` [${e2.code ?? e2.cause?.code}]` : ""} ${reason}`.trim());
+}
+
 // server/documents.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
 
@@ -76761,7 +76768,7 @@ async function processDocument(deps, docId) {
     await db.update(documents).set({ status: "done", method, pages: pages.length, completedAt: /* @__PURE__ */ new Date(), error: null }).where(eq(documents.id, docId));
   } catch (e2) {
     const message = e2 instanceof OcrUnavailable ? e2.message : "This file could not be read.";
-    if (!(e2 instanceof OcrUnavailable)) console.error("document processing failed", docId, e2);
+    if (!(e2 instanceof OcrUnavailable)) logError(`document ${docId} processing failed`, e2);
     await db.update(documents).set({ status: "failed", error: message, completedAt: /* @__PURE__ */ new Date() }).where(and(eq(documents.id, docId)));
   }
 }
@@ -76773,6 +76780,7 @@ function documentRoutes(ctx) {
   async function item(d2) {
     const [vals] = await db.select({ n: count() }).from(observations).where(eq(observations.documentId, d2.id));
     const [wait] = await db.select({ n: count() }).from(observations).where(and(eq(observations.documentId, d2.id), eq(observations.status, "extracted")));
+    const stuck = (d2.status === "running" || d2.status === "queued") && Date.now() - d2.createdAt.getTime() > 2 * 6e4;
     return {
       id: d2.id,
       docType: d2.docType,
@@ -76780,10 +76788,10 @@ function documentRoutes(ctx) {
       mime: d2.mime,
       size: d2.size,
       origin: d2.origin,
-      status: d2.status,
+      status: stuck ? "failed" : d2.status,
       method: d2.method,
       pages: d2.pages,
-      error: d2.error,
+      error: stuck ? "Reading this file did not finish. Upload it again." : d2.error,
       by: d2.byLabel,
       at: d2.createdAt.toISOString(),
       syncStatus: d2.syncStatus,
@@ -76793,6 +76801,7 @@ function documentRoutes(ctx) {
   }
   const MAX_DOCUMENTS = 8;
   const MAX_WORKSPACE_BYTES = 24 * 1024 * 1024;
+  const MAX_TOTAL_BYTES = 200 * 1024 * 1024;
   async function ingest(c3, patientId, bytes, name, docType) {
     const mime = sniff(bytes);
     if (!mime) return c3.json({ error: "invalid", message: "Only PDF, JPG and PNG files can be uploaded." }, 400);
@@ -76802,6 +76811,8 @@ function documentRoutes(ctx) {
     if ((have?.n ?? 0) >= MAX_DOCUMENTS) return c3.json({ error: "invalid", message: `This site keeps up to ${MAX_DOCUMENTS} uploads per patient. Choose "Start with fresh sample data" to clear them.` }, 409);
     const [used] = await db.select({ n: sum(documents.size) }).from(documents).where(like(documents.patientId, `%~${user.workspace}`));
     if (Number(used?.n ?? 0) + bytes.length > MAX_WORKSPACE_BYTES) return c3.json({ error: "invalid", message: 'Your sample space is full. Choose "Start with fresh sample data" to clear it.' }, 409);
+    const [all] = await db.select({ n: sum(documents.size) }).from(documents);
+    if (Number(all?.n ?? 0) + bytes.length > MAX_TOTAL_BYTES) return c3.json({ error: "invalid", message: "The site is holding as many test uploads as it can right now. Try again later." }, 503);
     const id = randomUUID4();
     await files.put(id, bytes);
     await db.insert(documents).values({
@@ -77177,7 +77188,7 @@ function languageRoutes({ db, requireUser, translator, speaker }) {
       try {
         out = await translator.translate(missing, target);
       } catch (e2) {
-        console.error("translate failed", e2);
+        logError("translate failed", e2);
         return c3.json({ error: "unavailable" }, 502);
       }
       for (let i3 = 0; i3 < missing.length; i3++) {
@@ -77198,9 +77209,26 @@ function languageRoutes({ db, requireUser, translator, speaker }) {
     try {
       return c3.json(await speaker.speak(body.data.text, body.data.lang));
     } catch (e2) {
-      console.error("speech failed", e2);
+      logError("speech failed", e2);
       return c3.json({ error: "unavailable" }, 502);
     }
+  });
+  return r2;
+}
+
+// server/routes/maintenance.ts
+var DAY = 864e5;
+function maintenanceRoutes({ db }) {
+  const r2 = new Hono3();
+  r2.get("/maintenance", async (c3) => {
+    const secret = process.env.CRON_SECRET;
+    if (secret && c3.req.header("authorization") !== `Bearer ${secret}`) return c3.json({ error: "forbidden" }, 403);
+    const now = Date.now();
+    const workspaces2 = await clearIdleWorkspaces(db);
+    await db.delete(authAttempts).where(lt(authAttempts.at, new Date(now - DAY)));
+    await db.delete(sessions).where(lt(sessions.expiresAt, new Date(now - DAY)));
+    await db.delete(accessLog).where(lt(accessLog.at, new Date(now - 30 * DAY)));
+    return c3.json({ ok: true, workspacesCleared: workspaces2 });
   });
   return r2;
 }
@@ -77249,9 +77277,10 @@ function createApp(deps) {
   app.route("/", documentRoutes(ctx));
   app.route("/", exchangeRoutes(ctx));
   app.route("/", languageRoutes(ctx));
+  app.route("/", maintenanceRoutes(ctx));
   app.notFound((c3) => c3.json({ error: "not_found", path: c3.req.path }, 404));
   app.onError((err2, c3) => {
-    console.error(err2);
+    logError(`${c3.req.method} ${c3.req.path}`, err2);
     return c3.json({ error: "server_error" }, 500);
   });
   return app;
@@ -77744,16 +77773,19 @@ function unzipSync(data2, opts) {
 var CONTRACT = {
   base: "https://api.sarvam.ai",
   keyHeader: "api-subscription-key",
-  submit: "/doc-ai/v1/job/digitise",
-  status: (id) => `/doc-ai/v1/job/${id}`,
-  download: (id) => `/doc-ai/v1/job/${id}/download`,
+  submit: "/doc-ai/v1/job/parse",
+  status: (id) => `/doc-ai/v1/job/${id}/status`,
+  download: (id) => `/doc-ai/v1/job/${id}/download-url`,
   fileField: "file",
-  jobId: (b3) => String(b3.job_id ?? b3.id ?? ""),
-  state: (b3) => String(b3.job_state ?? b3.status ?? b3.state ?? "").toLowerCase(),
-  done: ["completed", "complete", "succeeded", "success", "done"],
-  failed: ["failed", "error", "cancelled"],
-  downloadUrl: (b3) => String(b3.download_url ?? b3.url ?? "")
+  language: "en-IN",
+  // slips are written in English; Sarvam asks for the right code for best accuracy
+  jobId: (b3) => String(b3.job_id ?? ""),
+  state: (b3) => String(b3.status ?? "").toLowerCase(),
+  done: ["completed", "partially_completed"],
+  failed: ["failed", "rejected"],
+  downloadUrl: (b3) => String(b3.url ?? "")
 };
+var FILE_NAME = { "application/pdf": "document.pdf", "image/jpeg": "document.jpg", "image/png": "document.png" };
 var SarvamOcr = class {
   constructor(o2) {
     this.o = o2;
@@ -77769,7 +77801,8 @@ var SarvamOcr = class {
   }
   async recognise(bytes, mime) {
     const form = new FormData();
-    form.append(CONTRACT.fileField, new Blob([new Uint8Array(bytes)], { type: mime }), mime === "application/pdf" ? "document.pdf" : "document");
+    form.append(CONTRACT.fileField, new Blob([new Uint8Array(bytes)], { type: mime }), FILE_NAME[mime] ?? "document.pdf");
+    form.append("language", CONTRACT.language);
     form.append("output_format", "md");
     const created = await this.json(CONTRACT.submit, { method: "POST", body: form });
     const id = CONTRACT.jobId(created);
@@ -77780,7 +77813,7 @@ var SarvamOcr = class {
       if (CONTRACT.done.includes(s2)) break;
       if (CONTRACT.failed.includes(s2)) throw new OcrUnavailable("The reading service could not read this file.");
       if (Date.now() > deadline) throw new OcrUnavailable("The reading service took too long. Try again.");
-      await new Promise((r2) => setTimeout(r2, this.o.pollMs ?? 1500));
+      await new Promise((r2) => setTimeout(r2, this.o.pollMs ?? 2e3));
     }
     const url2 = CONTRACT.downloadUrl(await this.json(CONTRACT.download(id)));
     if (!url2) throw new OcrUnavailable("The reading service returned no result.");
@@ -77801,7 +77834,7 @@ var CONTRACT2 = {
   translateBody: (text2, target) => ({ input: text2, source_language_code: "en-IN", target_language_code: target, model: "mayura:v1", mode: "formal" }),
   translated: (b3) => typeof b3.translated_text === "string" ? b3.translated_text : "",
   speechPath: "/text-to-speech",
-  speechBody: (text2, lang) => ({ text: text2, target_language_code: lang, model: "bulbul:v2", speaker: "anushka" }),
+  speechBody: (text2, lang) => ({ text: text2, language_code: lang, model: "bulbul:v3", speaker: "ritu" }),
   audio: (b3) => Array.isArray(b3.audios) && typeof b3.audios[0] === "string" ? b3.audios[0] : "",
   speechMime: "audio/wav"
 };
@@ -77915,7 +77948,7 @@ function vercelHandler(boot2) {
       if (b3 === void 0 && typeof a3.arrayBuffer === "function") return await instance.fetch(withRealUrl(a3));
       await send(b3, await instance.fetch(await toRequest(a3)));
     } catch (e2) {
-      console.error("request failed", e2);
+      logError("request failed", e2);
       const body = JSON.stringify({ error: "server_error" });
       if (b3) {
         b3.statusCode = 500;

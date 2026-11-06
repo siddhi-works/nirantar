@@ -1,3 +1,4 @@
+import { logError } from './log';
 import { randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import type { Db } from './db/client';
@@ -60,7 +61,7 @@ export async function processDocument(deps: { db: Db; files: FileStore; ocr?: Oc
     await db.update(documents).set({ status: 'done', method, pages: pages.length, completedAt: new Date(), error: null }).where(eq(documents.id, docId));
   } catch (e) {
     const message = e instanceof OcrUnavailable ? e.message : 'This file could not be read.';
-    if (!(e instanceof OcrUnavailable)) console.error('document processing failed', docId, e);
+    if (!(e instanceof OcrUnavailable)) logError(`document ${docId} processing failed`, e);
     await db.update(documents).set({ status: 'failed', error: message, completedAt: new Date() }).where(and(eq(documents.id, docId)));
   }
 }

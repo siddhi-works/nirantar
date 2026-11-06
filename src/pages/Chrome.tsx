@@ -122,7 +122,7 @@ const NOTE_ICON = { lab: FlaskConical, msg: MessageSquare, alert: AlertTriangle,
 export function Notifications({ items }: { items: { icon: keyof typeof NOTE_ICON; title: string; sub: string; time: string }[] }) {
   return (
     <section className="card" data-accent="terracotta">
-      <div className="card__head"><h2 className="card__title"><Bell size={16} />Notifications</h2><span className="chip chip--outline">{items.length} new</span></div>
+      <div className="card__head"><h2 className="card__title"><Bell size={16} />Notifications</h2><span className="chip chip--outline" title="Example content, not real patients or alerts">Sample · {items.length} new</span></div>
       <ul className="notes">
         {items.map(n => { const I = NOTE_ICON[n.icon]; return (
           <li key={n.title} className={cx(n.icon === 'alert' && 'is-alert')}><span className="notes__i"><I size={16} /></span><span className="grow"><b>{n.title}</b><small>{n.sub}</small></span><time>{n.time}</time></li>
@@ -135,7 +135,7 @@ export function Notifications({ items }: { items: { icon: keyof typeof NOTE_ICON
 export function Schedule({ title, rows }: { title: string; rows: Slot[] }) {
   return (
     <section className="card" data-accent="cerulean">
-      <div className="card__head"><h2 className="card__title"><CalendarClock size={16} />{title}</h2><span className="chip chip--outline">{today()}</span></div>
+      <div className="card__head"><h2 className="card__title"><CalendarClock size={16} />{title}</h2><span className="chip chip--outline" title="Example schedule, not real appointments">Sample · {today()}</span></div>
       <ul className="sched">
         {rows.map(r => (
           <li key={r.time + r.title}>

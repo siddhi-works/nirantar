@@ -7,6 +7,8 @@ import { observationRoutes } from './routes/observations';
 import { documentRoutes } from './routes/documents';
 import { exchangeRoutes } from './routes/exchange';
 import { languageRoutes } from './routes/language';
+import { maintenanceRoutes } from './routes/maintenance';
+import { logError } from './log';
 
 export type { Deps };
 
@@ -52,10 +54,11 @@ export function createApp(deps: Deps) {
   app.route('/', documentRoutes(ctx));
   app.route('/', exchangeRoutes(ctx));
   app.route('/', languageRoutes(ctx));
+  app.route('/', maintenanceRoutes(ctx));
 
   app.notFound(c => c.json({ error: 'not_found', path: c.req.path }, 404));
   app.onError((err, c) => {
-    console.error(err);
+    logError(`${c.req.method} ${c.req.path}`, err);
     return c.json({ error: 'server_error' }, 500);
   });
 

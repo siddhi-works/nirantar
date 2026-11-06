@@ -35,3 +35,41 @@ describe('database setup', () => {
     expect((await post({ role: 'doctor', hprId: '00-0000-0000-0000', hfrId: 'IN2900011882' })).status).toBe(401);
   });
 });
+
+describe('housekeeping and hardening', () => {
+  it('creates the starting request once, even when two sign-ins reach a new workspace at the same moment', async () => {
+    const { ensureWorkspace } = await import('./seed');
+    const { simConsents } = await import('./db/schema');
+    const { eq } = await import('drizzle-orm');
+    const db = await createDb();
+    await seed(db);
+    await Promise.all([ensureWorkspace(db, 'abababababab'), ensureWorkspace(db, 'abababababab'), ensureWorkspace(db, 'abababababab')]);
+    expect((await db.select().from(simConsents).where(eq(simConsents.workspace, 'abababababab'))).length).toBe(1);
+  });
+
+  it('logs the kind of failure without the data inside it', async () => {
+    const { logError } = await import('./log');
+    const lines: string[] = [];
+    const orig = console.error; console.error = (m: string) => { lines.push(String(m)); };
+    try {
+      logError('POST /x', Object.assign(new Error('Failed query: insert into observations values ($1)\nparams: Rajesh Kumar Singh,91-2612'), { name: 'DrizzleQueryError' }));
+    } finally { console.error = orig; }
+    expect(lines[0]).toContain('DrizzleQueryError');
+    expect(lines[0]).not.toContain('Rajesh');
+    expect(lines[0]).not.toContain('91-2612');
+  });
+
+  it('the daily clean-up runs, and refuses a caller without the secret when one is set', async () => {
+    const db = await createDb();
+    await seed(db);
+    const app = createApp({ db, config: loadConfig({}), auth: new DevAuthProvider('482915') });
+    const ok = await app.request('/api/maintenance');
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ ok: true });
+    process.env.CRON_SECRET = 's3cret';
+    try {
+      expect((await app.request('/api/maintenance')).status).toBe(403);
+      expect((await app.request('/api/maintenance', { headers: { authorization: 'Bearer s3cret' } })).status).toBe(200);
+    } finally { delete process.env.CRON_SECRET; }
+  });
+});

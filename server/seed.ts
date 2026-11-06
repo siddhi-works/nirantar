@@ -46,15 +46,15 @@ const IDLE_DAYS = 14;
 
 /** Make sure a workspace exists and has the starting data: a request from the other hospital waiting for the first patient. */
 export async function ensureWorkspace(db: Db, ws: string): Promise<void> {
-  const known = await db.select({ id: workspaces.id }).from(workspaces).where(eq(workspaces.id, ws)).limit(1);
-  if (known.length) { await db.update(workspaces).set({ seenAt: new Date() }).where(eq(workspaces.id, ws)); return; }
-  await db.insert(workspaces).values({ id: ws }).onConflictDoNothing();
+  // Insert first and see whether this request created the row. Two sign-ins at once cannot both create it,
+  // so the starting request from the other hospital is added exactly once.
+  const created = await db.insert(workspaces).values({ id: ws }).onConflictDoNothing().returning({ id: workspaces.id });
+  if (!created.length) { await db.update(workspaces).set({ seenAt: new Date() }).where(eq(workspaces.id, ws)); return; }
   const first = parseRecord().patients[0];
   await db.insert(simConsents).values({
     id: randomUUID(), patientId: scope(first.id, ws), abha: digits(first.abhaId), hiuHfr: OTHER_HFR, hiuUserId: DEV_DOCTOR_B.id,
     hiuName: 'Civil Hospital, Lucknow', workspace: ws, purpose: 'Treatment', validityDays: 30, status: 'requested',
   });
-  if (Math.random() < 0.1) await clearIdleWorkspaces(db); // housekeeping now and then, so the free database does not fill up
 }
 
 /** Remove every workspace nobody has touched for two weeks, with its uploads. Returns how many were cleared. */

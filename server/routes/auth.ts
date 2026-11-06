@@ -54,6 +54,8 @@ export function authRoutes({ db, config, auth, requireUser }: AppCtx) {
       return c.json({ error: 'invalid_credentials', message: GENERIC_AUTH_ERROR }, 401);
     }
 
+    if (await countRequests(db, `in:${ip}`) >= LIMITS.signInsPerIp) return c.json({ error: 'too_many_attempts' }, 429);
+    await record(db, `in:${ip}`, true);
     const kept = getCookie(c, WS_COOKIE);
     const ws = kept && WORKSPACE_RE.test(kept) ? kept : newWorkspaceId();
     await ensureWorkspace(db, ws);

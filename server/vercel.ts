@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
+import { logError } from './log';
+
 type App = { fetch: (req: Request) => Response | Promise<Response> };
 
 const BODYLESS = new Set(['GET', 'HEAD']);
@@ -79,7 +81,7 @@ export function vercelHandler(boot: () => Promise<App>) {
       if (b === undefined && typeof (a as Request).arrayBuffer === 'function') return await instance.fetch(withRealUrl(a as Request));
       await send(b!, await instance.fetch(await toRequest(a as IncomingMessage)));
     } catch (e) {
-      console.error('request failed', e);
+      logError('request failed', e);
       const body = JSON.stringify({ error: 'server_error' });
       if (b) { b.statusCode = 500; b.setHeader('content-type', 'application/json'); b.end(body); return; }
       return new Response(body, { status: 500, headers: { 'content-type': 'application/json' } });
