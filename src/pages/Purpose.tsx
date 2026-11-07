@@ -1,43 +1,12 @@
 import { useState } from 'react';
-import { FileScan, ListChecks, Network, ScanLine, ShieldCheck } from 'lucide-react';
+import { ScanLine } from 'lucide-react';
 import { api } from '@/api';
 import { useApi } from '@/api/hooks';
 import { useT } from '@/i18n';
 import { Button } from '@/ui/primitives';
 import { UploadDialog } from './UploadDocument';
-import { jumpTo } from './Chrome';
-
-/** What the product does, in the order it happens. Every step is a real button into that part of the app. */
-export function HowItWorks({ role }: { role: 'staff' | 'patient' }) {
-  const t = useT();
-  const steps = role === 'staff'
-    ? [
-      { icon: ScanLine, title: 'Scan a slip', text: 'Photograph or upload a prescription or report. Sarvam’s reader turns it into values.', to: 'scan' },
-      { icon: ListChecks, title: 'Check what was read', text: 'A doctor or nurse confirms, corrects or rejects each value. Nothing counts until then.', to: 'queue' },
-      { icon: FileScan, title: 'One record', text: 'Slips, tests and entries from every visit join one record. Every number opens the slip it came from.', to: 'patients' },
-      { icon: Network, title: 'Share with consent', text: 'Another hospital asks, the patient decides, and the copy travels encrypted and is erased on time.', to: 'network' },
-    ]
-    : [
-      { icon: ScanLine, title: 'Upload your reports', text: 'Add an old prescription or test report. It is read for you.', to: 'reports' },
-      { icon: ListChecks, title: 'Staff check it', text: 'Your doctor or nurse confirms what was read before it counts.', to: 'reports' },
-      { icon: FileScan, title: 'One record', text: 'All your visits in one place. Every number shows the report it came from.', to: 'summary' },
-      { icon: ShieldCheck, title: 'You choose who sees it', text: 'Hospitals must ask you. You decide what they see and for how long.', to: 'sharing' },
-    ];
-  return (
-    <ol className="flow" aria-label={t('How Nirantar works')}>
-      {steps.map((s, i) => (
-        <li key={s.title}>
-          <button type="button" onClick={() => jumpTo(s.to)}>
-            <span className="flow__n" aria-hidden="true">{i + 1}</span>
-            <s.icon size={22} aria-hidden="true" />
-            <b>{t(s.title)}</b>
-            <small>{t(s.text)}</small>
-          </button>
-        </li>
-      ))}
-    </ol>
-  );
-}
+import { useSession } from '@/session';
+import { useUi } from '@/ui/store';
 
 /** The scanner on the staff home: pick a patient held here, then upload a slip to be read. */
 export function ScanReportCard() {
@@ -65,6 +34,44 @@ export function ScanReportCard() {
         <p className="hint" style={{ marginTop: 10 }}>{t('Reads printed and handwritten slips in English and Hindi. A report for the wrong person is turned away.')}</p>
       </div>
       {open && chosen && <UploadDialog patientId={chosen} onClose={() => setOpen(false)} />}
+    </section>
+  );
+}
+
+/** The path that shows what Nirantar is for, in three steps: read a prescription, confirm what was read, watch the trend change. Uses a real sample slip and the real review. */
+export function TryItCard() {
+  const t = useT();
+  const toast = useUi(s => s.toast);
+  const open = useSession(s => s.openPatient);
+  const { data } = useApi(() => api.directory({ held: true, limit: 10 }), []);
+  const target = (data?.items ?? []).find(p => p.access === 'held' && /^P\d+$/.test(p.patientId));
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    if (!target) return;
+    setBusy(true);
+    try {
+      await api.uploadSample(target.patientId);
+      open(target.patientId);
+      toast(t('Sample prescription read. Confirm or correct each value in “Uploaded documents and values to review”.'));
+      setTimeout(() => document.getElementById('review')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 900);
+    } catch (e) { toast(e instanceof Error ? e.message : t('Could not read the sample.'), 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <section className="card try" aria-labelledby="try-h">
+      <div className="card__body row" style={{ gap: 16, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        <div>
+          <h2 id="try-h" style={{ fontSize: 16 }}>{t('Try it: from a prescription to a trend, in three steps')}</h2>
+          <ol>
+            <li>{t('Read a sample prescription. It is converted into values automatically.')}</li>
+            <li>{t('Confirm or correct each value. Nothing counts until a doctor or nurse confirms it.')}</li>
+            <li>{t('See the trend update, with every point linked to the slip it came from.')}</li>
+          </ol>
+        </div>
+        <div>
+          <Button onClick={go} disabled={busy || !target} icon={<ScanLine size={16} />}>{busy ? t('Reading…') : t('Start with a sample prescription')}</Button>
+          {!target && data && <p className="hint">{t('The sample slips belong to the patients held at All India Institute of Medical Sciences, Gorakhpur. Sign in as Dr. Swati Mani to try it.')}</p>}
+        </div>
+      </div>
     </section>
   );
 }

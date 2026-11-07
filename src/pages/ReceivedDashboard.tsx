@@ -13,6 +13,7 @@ import { useUi } from '@/ui/store';
 import { LangToggle } from '@/i18n/controls';
 import { useT } from '@/i18n';
 import { Logo } from './Chrome';
+import { ObsHomaCard, ObsRiskFlags } from './Homa';
 import { STATUS } from './exchange-status';
 
 type Res = Record<string, any> & { resourceType: string }; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -22,7 +23,7 @@ const shownValue = (r: Res) => (r.valueQuantity ? `${r.valueQuantity.value} ${r.
 /** "6 Nov 2026, 3:42 pm" in Indian time: when something was received or prepared. */
 export const fmtWhen = (iso?: string) => iso ? new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }) : '';
 
-const LOINC: Record<string, string> = { '4548-4': 'hba1c', '1558-6': 'fbs', '1521-4': 'ppbs', '29463-7': 'weight', '8302-2': 'height', '8480-6': 'sbp', '8462-4': 'dbp', '8867-4': 'pulse', '33914-3': 'egfr', '9318-7': 'uacr', '18262-6': 'ldl', '2085-9': 'hdl', '2571-8': 'tg', '1742-6': 'alt' };
+const LOINC: Record<string, string> = { '20448-7': 'insulin', '4548-4': 'hba1c', '1558-6': 'fbs', '1521-4': 'ppbs', '29463-7': 'weight', '8302-2': 'height', '8480-6': 'sbp', '8462-4': 'dbp', '8867-4': 'pulse', '33914-3': 'egfr', '9318-7': 'uacr', '18262-6': 'ldl', '2085-9': 'hdl', '2571-8': 'tg', '1742-6': 'alt' };
 const CHARTS: { code: string; label: string; unit: string; decimals: number; lowerIsBetter: boolean; target: TargetBand }[] = [
   { code: 'hba1c', label: 'HbA1c', unit: '%', decimals: 1, lowerIsBetter: true, target: { max: 7, maxExclusive: true, label: '< 7.0 %', note: 'Usual goal for most adults with diabetes' } },
   { code: 'fbs', label: 'Fasting sugar (FBS)', unit: 'mg/dL', decimals: 0, lowerIsBetter: true, target: { min: 80, max: 130, label: '80–130 mg/dL', note: 'Usual fasting goal' } },
@@ -44,7 +45,7 @@ export function SourceNote({ o }: { o: Obs }) {
 function readObservations(bundle: ReceivedRecordView['bundle']): { obs: Obs[]; res: Res[] } {
   const res = bundle.entry.map(e => e.resource as Res);
   const obs = res.filter(r => r.resourceType === 'Observation').map(o => ({
-    code: LOINC[o.code?.coding?.[0]?.code as string] ?? '',
+    code: o.code?.coding?.[0]?.system === 'urn:nirantar:obs' ? String(o.code.coding[0].code) : LOINC[o.code?.coding?.[0]?.code as string] ?? '',
     label: text(o), date: String(o.effectiveDateTime ?? ''), value: typeof o.valueQuantity?.value === 'number' ? (o.valueQuantity.value as number) : null,
     display: shownValue(o), status: String(o.status ?? ''),
     note: (o.note as { text: string }[] | undefined)?.find(n => !n.text.startsWith('Source:'))?.text,
@@ -121,6 +122,7 @@ export function ObsOverview({ obs }: { obs: Obs[] }) {
         </div>
       </Card>
 
+      <ObsHomaCard obs={obs} />
     </>
   );
 }
@@ -133,7 +135,7 @@ export function ObsTable({ obs }: { obs: Obs[] }) {
   return (
       <Card accent="cerulean">
         <CardHead title="Results and examinations, by date" />
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto' }} tabIndex={0} role="region" aria-label="Results table, scrollable">
           <table className="table"><thead><tr><th>Date</th><th>Measure</th><th>Value</th><th>Source</th><th>Status</th></tr></thead>
             <tbody>{byDate.flatMap(g => g.rows.map((o, i) => (
               <tr key={g.date + o.label + i}>
@@ -176,6 +178,7 @@ function Body({ v }: { v: ReceivedRecordView }) {
           <div className="grow">
             <h1>{name}</h1>
             <div className="phead__meta"><span>ABHA {patient?.identifier?.[0]?.value}</span><span>{patient?.gender === 'female' ? 'Female' : 'Male'}</span>{of('Condition').map((c, i) => <span key={i}>{text(c)}</span>)}</div>
+            <ObsRiskFlags obs={obs} />
             <div className="phead__cx"><span className="chip chip--outline"><ShieldCheck size={12} /> Read-only copy</span><span className={cx('chip', STATUS[v.consentStatus].tone)}>Patient's permission: {STATUS[v.consentStatus].label.toLowerCase()}</span></div>
           </div>
           <div className="rmeta">

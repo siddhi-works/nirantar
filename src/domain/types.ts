@@ -501,17 +501,6 @@ export interface RuleDefinition {
   kind: 'gap' | 'milestone' | 'informational';
 }
 
-export interface AuditEvent {
-  id: string;
-  at: string; // wall clock
-  actorRole: Role;
-  action: string;
-  target: string;
-  patientId?: PatientId;
-  purpose: string;
-  detail?: string;
-}
-
 export interface PatientSummary {
   patient: Patient;
   latestHba1c: TrendPoint | null;
@@ -527,52 +516,4 @@ export interface PatientSummary {
   medicines: string[];
 }
 
-export interface ClinicOverview {
-  patients: PatientSummary[];
-  loop: { raised: number; action: number; evidence: number; closed: number; closedByRecord: number };
-  kpis: {
-    openGaps: number;
-    highGaps: number;
-    planNotEvidenced: number;
-    followUpOnTime: [number, number];
-    tasksOpen: number;
-    coveragePct: number;
-  };
-  topGaps: Gap[];
-  cohort: { patientId: PatientId; name: string; medsUnchanged: boolean; series: Record<'hba1c' | 'fbs' | 'ppbs', (number | null)[]>; deltas: Record<'hba1c' | 'fbs' | 'ppbs', number | null> }[];
-}
-
-export interface SearchHit {
-  patient: Patient;
-  matched: string; // which field matched
-  score: number;
-}
-
 export type ClosureFormValues = Record<string, string>;
-
-export interface CreateTaskInput {
-  gapId: string;
-  title: string;
-  owner: Role;
-  priority: Severity;
-  dueDate: ISODate;
-  note?: string;
-}
-export interface ActionInput {
-  taskId: string;
-  type: string;
-  note: string;
-}
-export interface EvidenceInput {
-  taskId: string;
-  kind: 'values' | 'document' | 'note';
-  values?: ClosureFormValues;
-  attachment?: string;
-  note?: string;
-}
-export interface CloseInput {
-  taskId: string;
-  outcome: string;
-}
-
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };

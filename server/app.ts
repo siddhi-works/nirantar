@@ -3,6 +3,7 @@ import { makeCtx, type Deps, type Env } from './ctx';
 import { users } from './db/schema';
 import { authRoutes } from './routes/auth';
 import { profileRoutes } from './routes/profile';
+import { helpRoutes } from './routes/help';
 import { patientRoutes } from './routes/patients';
 import { observationRoutes } from './routes/observations';
 import { documentRoutes } from './routes/documents';
@@ -55,6 +56,7 @@ export function createApp(deps: Deps) {
   });
   app.route('/', authRoutes(ctx));
   app.route('/', profileRoutes(ctx));
+  app.route('/', helpRoutes(ctx));
   app.route('/', registrationRoutes(ctx)); // before patientRoutes: /patients/register and /patients/registered must not read as ids
   app.route('/', patientRoutes(ctx));
   app.route('/', observationRoutes(ctx));

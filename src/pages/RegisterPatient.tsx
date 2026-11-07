@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { BadgeCheck, ChevronLeft, ShieldCheck, UserPlus, X } from 'lucide-react';
 import { api } from '@/api';
 import { useApi } from '@/api/hooks';
-import type { RegisteredPatient, RegistrationDraft } from '@/domain/api';
-import { fmtDate } from '@/domain/format';
+import type { RegistrationDraft } from '@/domain/api';
 import { FACILITY } from '@/data/demo';
 import { formatAbha, useSession } from '@/session';
 import { Button, Card, CardHead, Modal } from '@/ui/primitives';
@@ -152,25 +151,13 @@ export function RegisterDialog({ onClose }: { onClose: () => void }) {
 /** On the doctor's and nurse's home screens: register a new patient, and open one registered earlier. */
 export function RegisterCard() {
   const [dialog, setDialog] = useState(false);
-  const open = useSession(s => s.openPatient);
-  const { data: page } = useApi(() => api.listRegistered({ limit: 5 }), []);
-  const data = page?.items;
-  const list = data ?? [];
   return (
     <Card accent="sage">
-      <CardHead title="New patients" icon={<UserPlus size={16} />} right={<Button size="sm" onClick={() => setDialog(true)} icon={<UserPlus size={14} />}>Register a new patient</Button>} />
+      <CardHead title="Register a new patient" icon={<UserPlus size={16} />} />
       <div className="card__body">
-        <p className="hint">A patient who is not in the system yet is registered in three steps: details, a verification code sent to their mobile, and their consent. No record is made before all three are done.</p>
-        {list.length > 0 && (
-          <ul className="xlist" style={{ marginTop: 10 }}>
-            {list.map((p: RegisteredPatient) => (
-              <li key={p.id}>
-                <span className="grow"><b translate="no">{p.name}</b><small>{p.age} years · {p.sex === 'F' ? 'Female' : p.sex === 'M' ? 'Male' : 'Other'} · <span translate="no">ABHA {fmtAbha(p.abha)}</span> · registered {fmtDate(p.registeredAt)}</small></span>
-                <Button size="sm" variant="secondary" onClick={() => open(p.id)}>Open record</Button>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ol className="steps3"><li>Enter the patient’s details</li><li>Verify the code sent to their mobile</li><li>Record their consent</li></ol>
+        <p className="hint">Nothing is saved until all three steps are done.</p>
+        <div style={{ marginTop: 10 }}><Button onClick={() => setDialog(true)} icon={<UserPlus size={14} />}>Register a new patient</Button></div>
       </div>
       {dialog && <RegisterDialog onClose={() => setDialog(false)} />}
     </Card>

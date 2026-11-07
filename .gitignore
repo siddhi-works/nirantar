@@ -11,3 +11,4 @@ dist
 HANDOFF.md
 nirantar-frontend-kit.zip
 .kit-stage
+tsconfig.tsbuildinfo

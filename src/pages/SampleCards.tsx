@@ -1,11 +1,11 @@
 import { Bell, CalendarClock, CalendarDays, Clock } from 'lucide-react';
-import { APPOINTMENTS, PATIENT_APPOINTMENT, PATIENT_NOTES, SHIFTS, STAFF_NOTES, sampleDay, sampleTime, type SampleNote } from '@/data/sample';
+import { APPOINTMENTS, PATIENT_APPOINTMENT, PATIENT_NOTES, SHIFTS, STAFF_NOTES, sampleDay, type SampleNote } from '@/data/sample';
 import { useT } from '@/i18n';
 import { Card, CardHead, cx } from '@/ui/primitives';
 import { ScopeNote } from '@/ui/ScopeNote';
 
 const Sample = () => { const t = useT(); return <span className="chip chip--dashed">{t('Demo')}</span>; };
-const Demo = () => { const t = useT(); return <ScopeNote kind="demo">{t('Demo content for how this screen will look. It is made up and is not connected to the queue or to any record.')}</ScopeNote>; };
+const Demo = () => { const t = useT(); return <ScopeNote kind="demo">{t('Demo content for how this screen will look. It is made up and carries no real information.')}</ScopeNote>; };
 
 function Notes({ items, title }: { items: SampleNote[]; title: string }) {
   return (
@@ -16,7 +16,7 @@ function Notes({ items, title }: { items: SampleNote[]; title: string }) {
           <li key={n.id} className={cx('note', `note--${n.tone}`)}>
             <span className="note__dot" aria-hidden="true" />
             <span className="grow"><b>{n.title}</b><small>{n.text}</small></span>
-            <time className="muted" dateTime={n.when.toISOString()}>{sampleDay(n.when)}, {sampleTime(n.when)}</time>
+            <time className="muted" dateTime={n.when.toISOString()}>{sampleDay(n.when)}</time>
           </li>
         ))}
       </ul>
@@ -36,7 +36,7 @@ export function ScheduleCard() {
       <CardHead title={t('Clinic schedule today')} icon={<Clock size={16} />} right={<Sample />} />
       <ul className="xlist">
         {SHIFTS.map(s => (
-          <li key={s.who}><span className="grow"><b translate="no">{s.who}</b><small>{s.role} · {s.room}</small></span><span className="num muted" translate="no">{s.hours}</span></li>
+          <li key={s.who}><span className="grow"><b translate="no">{s.who}</b><small>{s.role} · {s.room}</small></span><span className="muted" translate="no">{s.hours}</span></li>
         ))}
       </ul>
       <Demo />
@@ -53,7 +53,7 @@ export function AppointmentsCard() {
       <CardHead title={t('Appointment book')} icon={<CalendarDays size={16} />} right={<Sample />} />
       <ul className="xlist">
         {APPOINTMENTS.map(a => (
-          <li key={a.id}><span className="opd__time num" translate="no">{a.time.toDateString() === today ? sampleTime(a.time) : `${sampleDay(a.time)}, ${sampleTime(a.time)}`}</span>
+          <li key={a.id}><span className="opd__time" translate="no">{a.time.toDateString() === today ? 'Today' : 'Tomorrow'}</span>
             <span className="grow"><b translate="no">{a.name}</b><small>{a.reason} · {a.with}</small></span></li>
         ))}
       </ul>
@@ -70,7 +70,7 @@ export function NextVisitCard() {
     <Card accent="terracotta">
       <CardHead title={t('Your next appointment')} icon={<CalendarClock size={16} />} right={<Sample />} />
       <div className="card__body">
-        <b className="num" style={{ fontSize: 20 }} translate="no">{sampleDay(a.when)}, {sampleTime(a.when)}</b>
+        <b className="num" style={{ fontSize: 20 }} translate="no">{sampleDay(a.when)}</b>
         <p translate="no">{a.with} · {a.where}</p>
         <p className="hint">{a.note}</p>
         <Demo />

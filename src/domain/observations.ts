@@ -6,7 +6,7 @@
 export type ObsStatus = 'extracted' | 'verified' | 'corrected' | 'rejected';
 export type ObsOrigin = 'entry' | 'upload';
 
-export type ObsGroup = 'glycaemic' | 'vitals' | 'kidney' | 'lipid' | 'liver' | 'exam' | 'screening';
+export type ObsGroup = 'glycaemic' | 'vitals' | 'kidney' | 'lipid' | 'liver' | 'exam' | 'screening' | 'history';
 
 export interface ObsDef {
   code: string;
@@ -29,6 +29,7 @@ export const OBS_DEFS: ObsDef[] = [
   n('hba1c', 'HbA1c', 'glycaemic', '%', 3, 20, 1),
   n('fbs', 'Fasting glucose (FBS)', 'glycaemic', 'mg/dL', 30, 600),
   n('ppbs', 'Post-meal glucose (PPBS)', 'glycaemic', 'mg/dL', 30, 800),
+  n('insulin', 'Fasting insulin', 'glycaemic', 'µU/mL', 0.5, 500, 1),
   n('sbp', 'Systolic BP', 'vitals', 'mmHg', 60, 260),
   n('dbp', 'Diastolic BP', 'vitals', 'mmHg', 30, 160),
   n('pulse', 'Pulse', 'vitals', '/min', 30, 220),
@@ -44,6 +45,9 @@ export const OBS_DEFS: ObsDef[] = [
   c('retina', 'Retinal exam', 'exam', [['no retinopathy', 'No retinopathy'], ['non-proliferative retinopathy', 'Non-proliferative retinopathy'], ['proliferative retinopathy', 'Proliferative retinopathy'], ['not gradable', 'Not gradable, repeat needed']]),
   c('foot', 'Foot exam', 'exam', [['normal', 'Normal, sensation intact'], ['abnormal', 'Abnormal']]),
   c('neuropathy', 'Neuropathy exam', 'exam', [['absent', 'No neuropathy found'], ['present', 'Neuropathy found']]),
+  c('hiv', 'HIV status', 'history', [['negative', 'Negative'], ['positive', 'Positive'], ['not tested', 'Not tested']]),
+  c('hcv', 'HCV (hepatitis C) status', 'history', [['negative', 'Negative'], ['positive', 'Positive'], ['not tested', 'Not tested']]),
+  c('prior-mi', 'Past heart attack (MI)', 'history', [['no', 'No'], ['yes', 'Yes, had a heart attack']]),
   c('osa-screen', 'Sleep apnoea screening', 'screening', [['negative', 'Screen negative'], ['positive', 'Screen positive']]),
 ];
 

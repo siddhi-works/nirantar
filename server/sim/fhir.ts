@@ -7,6 +7,7 @@ import type { Fact, Recall } from '../../src/domain/types';
 import { OBS_BY_CODE } from '../../src/domain/observations';
 
 const LOINC: Record<string, { code: string; display: string }> = {
+  insulin: { code: '20448-7', display: 'Insulin [Units/volume] in Serum or Plasma' },
   hba1c: { code: '4548-4', display: 'Hemoglobin A1c/Hemoglobin.total in Blood' },
   fbs: { code: '1558-6', display: 'Fasting glucose [Mass/volume] in Serum or Plasma' },
   ppbs: { code: '1521-4', display: 'Glucose [Mass/volume] in Serum or Plasma --2 hours post meal' },
@@ -22,7 +23,7 @@ const LOINC: Record<string, { code: string; display: string }> = {
   tg: { code: '2571-8', display: 'Triglyceride [Mass/volume] in Serum or Plasma' },
   alt: { code: '1742-6', display: 'Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma' },
 };
-const CATEGORY: Record<string, string> = { glycaemic: 'laboratory', kidney: 'laboratory', lipid: 'laboratory', liver: 'laboratory', vitals: 'vital-signs', exam: 'exam', screening: 'survey' };
+const CATEGORY: Record<string, string> = { glycaemic: 'laboratory', kidney: 'laboratory', lipid: 'laboratory', liver: 'laboratory', vitals: 'vital-signs', exam: 'exam', history: 'social-history', screening: 'survey' };
 
 export interface Fhir { resourceType: string; id?: string; [k: string]: unknown }
 export interface FhirBundle { resourceType: 'Bundle'; type: 'document'; id: string; timestamp: string; entry: { fullUrl: string; resource: Fhir }[] }
@@ -91,7 +92,7 @@ export function buildRegisteredBundle(
     return {
       resourceType: 'Observation', id: `obs-${i}`, status: 'final',
       category: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/observation-category', code: CATEGORY[def?.group ?? ''] ?? 'laboratory' }] }],
-      code: { ...(loinc ? { coding: [{ system: 'http://loinc.org', code: loinc.code, display: loinc.display }] } : {}), text: def?.label ?? r.code },
+      code: { coding: loinc ? [{ system: 'http://loinc.org', code: loinc.code, display: loinc.display }] : [{ system: 'urn:nirantar:obs', code: r.code }], text: def?.label ?? r.code },
       subject: { reference: 'Patient/pat' }, effectiveDateTime: r.obsDate,
       ...(r.origin ? { note: [{ text: `Source: ${r.origin === 'upload' ? 'read from an uploaded report' : 'entered'} and confirmed by ${r.byLabel ?? 'staff'} at ${hip.name}` }] } : {}),
       ...(r.valueNum !== null ? { valueQuantity: { value: r.valueNum, unit: def?.unit ?? '', system: 'http://unitsofmeasure.org' } } : { valueString: r.valueText ?? '' }),

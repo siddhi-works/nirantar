@@ -14,6 +14,8 @@ export default function App() {
   const user = useSession(s => s.user);
   const ready = useSession(s => s.ready);
   useEffect(() => { void useSession.getState().init(); }, []);
+  useEffect(() => { document.title = !user ? 'Log in · Nirantar' : `${user.role === 'patient' ? 'My record' : 'OPD dashboard'} · Nirantar`; }, [user]);
+  useEffect(() => { window.scrollTo(0, 0); }, [!!user]);
   if (!ready) return <Splash />;
   return (
     <>

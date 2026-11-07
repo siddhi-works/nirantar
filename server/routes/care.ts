@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { complications } from '../../src/domain/profile';
-import { accessLog, editRequests, educationLog, observations, patientAdvice, registeredPatients } from '../db/schema';
+import { ASHA_REASONS } from '../../src/domain/asha';
+import { accessLog, ashaReferrals, editRequests, educationLog, observations, patientAdvice, registeredPatients } from '../db/schema';
 import { buildRecall } from '../core/engine';
 import { NOT_FOUND, baseOfId, patientOf, type AppCtx, type Env } from '../ctx';
 import { REG_ID } from '../registry';
@@ -79,6 +80,25 @@ export function careRoutes({ db, requireUser, open, opsFor }: AppCtx) {
     const u = c.get('user');
     await db.insert(patientAdvice).values({ workspace: u.workspace, patientId: id.data, text: body.data.text, byLabel: u.name });
     return c.json({ ok: true }, 201);
+  });
+
+  /** Send the patient to the community health worker (ASHA or USHA) for follow-up at home. */
+  r.post('/patients/:id/asha-referrals', requireUser('doctor', 'nurse'), async c => {
+    const id = patientIdParam.safeParse(c.req.param('id'));
+    const body = z.object({ worker: z.enum(['asha', 'usha']), reason: z.enum(ASHA_REASONS.map(x => x.id) as [string, ...string[]]), note: z.string().trim().max(200).optional() }).safeParse(await c.req.json().catch(() => null));
+    if (!id.success || !(await open(c, id.data, 'refer-to-asha'))) return c.json(NOT_FOUND, 404);
+    if (!body.success) { const e = bad('Choose the worker and the reason.'); return c.json(e.body, e.status); }
+    const u = c.get('user');
+    await db.insert(ashaReferrals).values({ workspace: u.workspace, patientId: id.data, worker: body.data.worker, reason: body.data.reason, note: body.data.note || null, byLabel: u.name });
+    return c.json({ ok: true }, 201);
+  });
+
+  r.get('/patients/:id/asha-referrals', requireUser(), async c => {
+    const id = patientIdParam.safeParse(c.req.param('id'));
+    if (!id.success || !(await open(c, id.data, 'view-asha-referrals'))) return c.json(NOT_FOUND, 404);
+    const u = c.get('user');
+    const rows = await db.select().from(ashaReferrals).where(and(eq(ashaReferrals.workspace, u.workspace), eq(ashaReferrals.patientId, id.data))).orderBy(desc(ashaReferrals.id)).limit(20);
+    return c.json({ items: rows.map(x => ({ id: x.id, worker: x.worker, reason: x.reason, note: x.note, by: x.byLabel, at: x.at.toISOString() })) });
   });
 
   /** Record that a nurse or doctor counselled the patient on a topic. */

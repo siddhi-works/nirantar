@@ -6,7 +6,7 @@ import { useUi } from '@/ui/store';
 import { Button, Modal } from '@/ui/primitives';
 import { ValueField } from '@/ui/ValueForms';
 
-const GROUPS: Record<string, string> = { glycaemic: 'Blood sugar', kidney: 'Kidney', lipid: 'Lipids', liver: 'Liver', exam: 'Examinations', screening: 'Screening', vitals: 'Vitals' };
+const GROUPS: Record<string, string> = { glycaemic: 'Blood sugar', kidney: 'Kidney', lipid: 'Lipids', liver: 'Liver', exam: 'Examinations', screening: 'Screening', vitals: 'Vitals', history: 'History and risks' };
 // Blood pressure is entered as a pair in the vitals form, so it is not offered one number at a time.
 const OFFERED = OBS_DEFS.filter(d => d.code !== 'sbp' && d.code !== 'dbp');
 const today = () => new Date().toLocaleDateString('en-CA'); // the person's own calendar date, not UTC

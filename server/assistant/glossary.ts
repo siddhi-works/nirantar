@@ -97,5 +97,3 @@ export function termFor(question: string): Term | null {
   // the more specific terms are listed before the general ones, so the first match is the best match
   return TERMS.find(t => t.match.test(q)) ?? null;
 }
-
-export const SUGGESTIONS_EN = ['What is HbA1c?', 'What is eGFR?', 'What does LDL mean?', 'What is blood pressure?', 'What is neuropathy?', 'What is consent?'];

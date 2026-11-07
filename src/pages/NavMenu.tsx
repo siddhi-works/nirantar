@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Menu, X } from 'lucide-react';
 import { api } from '@/api';
 import { useApi } from '@/api/hooks';
@@ -26,7 +27,7 @@ export function NavMenu() {
   return (
     <>
       <Button variant="ghost" size="icon" onClick={() => setOn(true)} aria-label="Open the menu" aria-expanded={on}><Menu size={20} /></Button>
-      {on && (
+      {on && createPortal(
         <div className="drawer-wrap" onClick={() => setOn(false)}>
           <aside className="drawer" role="dialog" aria-label="Menu" onClick={e => e.stopPropagation()}>
             <div className="spread"><h2 style={{ fontSize: 18 }}>Menu</h2><Button variant="ghost" size="icon" onClick={() => setOn(false)} aria-label="Close the menu"><X size={18} /></Button></div>
@@ -59,7 +60,7 @@ export function NavMenu() {
             </section>
           </aside>
         </div>
-      )}
+      , document.body)}
     </>
   );
 }

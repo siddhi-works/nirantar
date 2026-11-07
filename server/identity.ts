@@ -15,6 +15,6 @@ export function identityCheck(pages: string[], who: { name: string; abha: string
   const seen = [...text.matchAll(ABHA)].map(m => m.slice(1, 5).join(''));
   if (seen.length && !seen.includes(who.abha)) return { ok: false, reason: `This document carries a different ABHA number (ending ${seen[0].slice(-4)}), so it was not added to ${who.name}’s record.` };
   const printed = NAME.exec(text)?.[1]?.trim();
-  if (printed && !nameMatches(printed, who.name)) return { ok: false, reason: `The name on this document does not match ${who.name}, so it was not added to the record.` };
+  if (printed && !nameMatches(printed, who.name)) return { ok: false, reason: `This report names a different person. It was not added. Check you picked ${who.name}, then upload again.` };
   return { ok: true };
 }

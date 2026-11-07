@@ -4,8 +4,7 @@
  */
 const day = (offset: number) => { const d = new Date(); d.setDate(d.getDate() + offset); return d; };
 const at = (offset: number, h: number, m = 0) => { const d = day(offset); d.setHours(h, m, 0, 0); return d; };
-export const sampleTime = (d: Date) => d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
-export const sampleDay = (d: Date) => d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+export const sampleDay = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
 export interface SampleNote { id: string; title: string; text: string; when: Date; tone: 'info' | 'ok' | 'warn' }
 export interface SampleSlot { id: string; time: Date; name: string; reason: string; with: string }
@@ -19,10 +18,10 @@ export const STAFF_NOTES: SampleNote[] = [
 ];
 
 export const SHIFTS: SampleShift[] = [
-  { who: 'Dr. Swati Mani', role: 'General Medicine', hours: '9:00 am – 1:00 pm', room: 'Room 4' },
-  { who: 'Dr. Arvind Nair', role: 'General Medicine', hours: '2:00 pm – 5:00 pm', room: 'Room 4' },
-  { who: 'Nurse Kavita Yadav', role: 'OPD nursing', hours: '8:30 am – 4:30 pm', room: 'Triage desk' },
-  { who: 'Lab counter', role: 'Pathology', hours: '8:00 am – 3:00 pm', room: 'Ground floor' },
+  { who: 'Dr. Swati Mani', role: 'General Medicine', hours: 'Morning', room: 'Room 4' },
+  { who: 'Dr. Arvind Nair', role: 'General Medicine', hours: 'Afternoon', room: 'Room 4' },
+  { who: 'Nurse Kavita Yadav', role: 'OPD nursing', hours: 'All day', room: 'Triage desk' },
+  { who: 'Lab counter', role: 'Pathology', hours: 'Until the afternoon', room: 'Ground floor' },
 ];
 
 export const APPOINTMENTS: SampleSlot[] = [
@@ -40,4 +39,4 @@ export const PATIENT_NOTES: SampleNote[] = [
   { id: 'p3', title: 'Clinic timing', text: 'The OPD at your hospital is open from 9 am to 5 pm, Monday to Saturday.', when: at(-2, 12, 0), tone: 'info' },
 ];
 
-export const PATIENT_APPOINTMENT = { when: at(14, 10, 30), with: 'Dr. Swati Mani', where: 'OPD Room 4', note: 'Fasting for 8 hours before the visit if blood tests are planned.' };
+export const PATIENT_APPOINTMENT = { when: at(14, 10, 30), with: 'Dr. Swati Mani', where: 'OPD Room 4', note: 'Fast for 8 hours before the visit if blood tests are planned.' };

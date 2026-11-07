@@ -26,7 +26,7 @@ describe('uploading a document', () => {
 
     const list = await items(nurse, 'P2');
     const fbs1 = list.find(i => i.code === 'fbs' && i.page === 1)!;
-    expect(fbs1).toMatchObject({ current: 158, date: '2000-08-04', status: 'extracted' });
+    expect(fbs1).toMatchObject({ current: 158, date: '2025-08-04', status: 'extracted' });
     expect(list.find(i => i.code === 'hba1c' && i.page === 3)!.current).toBe(6.8);
 
     // none of it counts yet
@@ -47,7 +47,7 @@ describe('uploading a document', () => {
     // it appears on the trend as a recorded point, beside the slip readings and never joined to them
     const hb = recall.trends.find((t: { code: string }) => t.code === 'hba1c');
     expect(hb.recorded).toHaveLength(1);
-    expect(hb.recorded[0]).toMatchObject({ value: 6.8, date: '2000-11-04', visit: 0 });
+    expect(hb.recorded[0]).toMatchObject({ value: 6.8, date: '2025-11-04', visit: 0 });
     expect(hb.recorded[0].citation.source.kind).toBe('upload');
     expect(hb.points.map((p: { value: number | null }) => p.value)).toEqual([null, null, 6.8, 6.6, 6.5]); // slip readings untouched
     expect(hb.latest.value).toBe(6.5);

@@ -61,7 +61,14 @@ type RawPatient = { patient_id: string; name: string; age: number; sex: 'M' | 'F
 /** Mock Indian names replace the workbook's placeholder names everywhere (slip headers, summaries, doctors). */
 const NAME_MAP: [string, string][] = [
   ['Mrs. Dummy 2', 'Mrs. Savitri Devi Pandey'], ['Mr. Dummy 1', 'Mr. Rajesh Kumar Singh'],
-  ['Dr. ABC', 'Dr. Swati Mani'], ['Dr. XYZ', 'Dr. Arvind Sinha'],
+  // one hospital, one doctor: both patients' slips name the doctor who signs in at the hospital that holds them, with the same registration number
+  ['Dr. ABC', 'Dr. Swati Mani'], ['Dr. XYZ', 'Dr. Swati Mani'], ['"reg_no":"12345"', '"reg_no":"98761"'],
+  // the first patient is held at Gorakhpur, so he lives near it, not in Patna (which is the other hospital's city)
+  ['Patna, Bihar', 'Kushinagar, U.P.'], ['Patna', 'Kushinagar'],
+  // the workbook's dates run from 2000 to 2027. They are moved so every visit is in the past and the two timelines sit in the same recent years.
+  ['2026-12-03', '2025-10-03'], ['2027-03-03', '2026-01-03'], ['2027-06-03', '2026-04-03'], ['2027-09-03', '2026-07-03'], ['2027-12-03', '2026-10-03'],
+  ['2000-08-04', '2025-08-04'], ['2000-09-04', '2025-09-04'], ['2000-11-04', '2025-11-04'], ['2001-02-04', '2026-02-04'], ['2001-05-04', '2026-05-04'],
+  ['03/12/2026', '03/10/2025'], ['03/12/2027', '03/10/2026'], ['04/08/2000', '04/08/2025'], ['04/05/2001', '04/05/2026'], ['March 2027', 'January 2026'],
 ];
 const localised = NAME_MAP.reduce((acc, [a, b]) => acc.split(a).join(b), JSON.stringify(raw));
 
@@ -75,7 +82,6 @@ const data = JSON.parse(localised) as {
   notes: { banner: string; dataCaveat: string };
 };
 
-export const HIS_NOTES = data.notes;
 export const HIS_TRENDS = data.trends;
 export const HIS_MED_VS_TREND = data.medVsTrend;
 export const HIS_AI = data.aiSummary;

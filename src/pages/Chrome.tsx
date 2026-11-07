@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { AlertCircle, AlertTriangle, Camera, CheckCircle2, Loader2, LogOut, Search, UserSearch } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Camera, CheckCircle2, HelpCircle, Loader2, LogOut, Search, UserSearch } from 'lucide-react';
 import { api } from '@/api';
 import { digits, formatAbha, useSession } from '@/session';
 import { useUi } from '@/ui/store';
@@ -7,12 +7,14 @@ import { cx } from '@/ui/primitives';
 import { LangToggle } from '@/i18n/controls';
 import { useT } from '@/i18n';
 import { NavMenu } from './NavMenu';
+import { HelpDialog } from './Help';
+import { FACILITY, OTHER_FACILITY } from '@/data/demo';
 
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden>
-      <rect width="32" height="32" rx="9" fill="#4FA8A0" />
-      <path d="M5 18h5l3-7 4 13 3-9 2 3h5" fill="none" stroke="#173140" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <rect width="32" height="32" rx="9" fill="#005EB8" />
+      <path d="M5 18h5l3-7 4 13 3-9 2 3h5" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -42,15 +44,16 @@ export const FeedbackLink = () => FEEDBACK_URL
   ? <a className="btn btn--ghost btn--sm" href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer">Give feedback</a>
   : null;
 
-export const VIEWS = {
-  staff: [{ view: 'main' as const, label: 'Workspace' }, { view: 'share' as const, label: 'Network and sharing' }],
-  patient: [{ view: 'main' as const, label: 'My record' }, { view: 'share' as const, label: 'Sharing' }],
+/** The parts of the one page, in the order they appear. Each header link scrolls to its part. */
+export const LINKS = {
+  staff: [{ id: 'queue', label: 'OPD queue' }, { id: 'patients', label: 'Patients' }, { id: 'sharing', label: 'Record sharing' }, { id: 'updates', label: 'Updates' }],
+  patient: [{ id: 'summary', label: 'My record' }, { id: 'trends', label: 'Trends' }, { id: 'care', label: 'Care' }, { id: 'reports', label: 'Reports' }, { id: 'sharing', label: 'Sharing' }],
 };
-const SHARE_PARTS = new Set(['network', 'qr', 'updates', 'sharing']);
 
-/** Scrolls to a part of the app, switching to the other view first when that part lives there. */
+/** Scrolls to a part of the page; from inside a patient's record it first returns to the dashboard. */
 export function jumpTo(id: string) {
-  useSession.getState().setView(SHARE_PARTS.has(id) ? 'share' : 'main');
+  const s = useSession.getState();
+  if (s.openId) s.closePatient();
   setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
 }
 
@@ -114,24 +117,31 @@ function ProfileMenu() {
   );
 }
 
-/** The one header on every signed-in screen: the brand, the two views, language, and the profile menu. */
+/** The one header on every signed-in screen: the brand, links to the parts of the page, help, language, and the profile menu. */
 export function TopBar({ right }: { right?: ReactNode }) {
-  const { user, view, setView, openId } = useSession();
+  const { user } = useSession();
   const t = useT();
-  const views = user?.role === 'patient' ? VIEWS.patient : VIEWS.staff;
+  const [help, setHelp] = useState(false);
+  const links = user?.role === 'patient' ? LINKS.patient : LINKS.staff;
   return (
     <header className="bar">
+      <div className="his-strip"><div>{user?.role === 'patient' ? <><b>{t('Nirantar patient portal')}</b><span>{t('Your own record, linked to your ABHA number')}</span></> : <><b translate="no">{user?.hfrId === OTHER_FACILITY.hfr ? OTHER_FACILITY.name : FACILITY.name}</b><span>{user?.role === 'nurse' ? t('OPD nursing station') : t('General Medicine OPD')}</span><span translate="no">{user?.name}</span></>}</div></div>
       <div className="bar__row">
         {user && user.role !== 'patient' && <NavMenu />}
         <div className="bar__brand"><Logo size={36} /><span>Nirantar<small>{t('Diabetes record')}</small></span></div>
-        <nav className="bar__links" aria-label={t('Views')}>
-          {views.map(v => <button key={v.view} type="button" aria-current={!openId && view === v.view ? 'page' : undefined} className={!openId && view === v.view ? 'is-on' : ''} onClick={() => { setView(v.view); window.scrollTo({ top: 0 }); }}>{t(v.label)}</button>)}
+        <nav className="bar__links" aria-label={t('Jump to')}>
+          {links.map(l => <button key={l.id} type="button" onClick={() => jumpTo(l.id)}>{t(l.label)}</button>)}
         </nav>
         <div className="grow" />
         {right}
+        <button type="button" className="btn btn--secondary btn--sm" aria-label={t('Help')} onClick={() => setHelp(true)}><HelpCircle size={15} /><span className="bar__helplabel">{t('Help')}</span></button>
         <LangToggle />
         <ProfileMenu />
       </div>
+      <nav className="bar__chips" aria-label={t('Jump to')}>
+        {links.map(l => <button key={l.id} type="button" onClick={() => jumpTo(l.id)}>{t(l.label)}</button>)}
+      </nav>
+      {help && <HelpDialog onClose={() => setHelp(false)} />}
     </header>
   );
 }
@@ -150,7 +160,6 @@ export const today = () => new Date().toLocaleDateString('en-IN', { weekday: 'lo
 /** The one way into a patient record: enter the unique ABHA number. */
 export function LookupPanel({ title }: { title: string }) {
   const openPatient = useSession(s => s.openPatient);
-  const [name, setName] = useState('');
   const [abha, setAbha] = useState('');
   const [state, setState] = useState<'idle' | 'fetching' | 'notfound'>('idle');
   const [found, setFound] = useState<string | null>(null);
@@ -161,7 +170,7 @@ export function LookupPanel({ title }: { title: string }) {
     setState('fetching');
     try {
       const hit = await api.lookup(abha);
-      setFound(hit.name); setName(hit.name);
+      setFound(hit.name);
       setTimeout(() => { setState('idle'); openPatient(hit.patientId); }, 650);
     } catch {
       setState('notfound'); setFound(null);
@@ -170,11 +179,9 @@ export function LookupPanel({ title }: { title: string }) {
 
   return (
     <section className="card lookup" data-accent="ink">
-      <div className="lookup__head"><UserSearch size={20} /><div><h2>{title}</h2><p>Enter the patient’s ABHA number to fetch their record from the national health exchange.</p></div></div>
+      <div className="lookup__head"><UserSearch size={18} /><h2>{title}</h2></div>
       <form onSubmit={go} className="lookup__form">
-        <div className="field"><label htmlFor="pn">Patient name</label>
-          <input id="pn" className="input" placeholder="Fills in after lookup" value={name} onChange={e => setName(e.target.value)} /></div>
-        <div className="field"><label htmlFor="pa">ABHA number</label>
+        <div className="field"><label htmlFor="pa">ABHA number (14 digits)</label>
           <input id="pa" className="input" inputMode="numeric" placeholder="XX-XXXX-XXXX-XXXX" value={abha} onChange={e => { setAbha(formatAbha(e.target.value)); setState('idle'); setFound(null); }} /></div>
         <button className="btn" disabled={state === 'fetching' || !abha}>
           {state === 'fetching' ? <><Loader2 size={15} className="spin" />Fetching record…</> : <><Search size={15} />Open record</>}
@@ -207,4 +214,17 @@ export function LoadError({ message, onRetry, onBack }: { message: string; onRet
       </main>
     </div>
   );
+}
+
+/** A small bar with the patient's name and ABHA number that appears once the full header card has scrolled away, so a long record never loses who it belongs to. */
+export function PatientStick({ name, abha }: { name: string; abha: string }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const target = document.querySelector('.phead');
+    if (!target || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(([e]) => setOn(!e.isIntersecting), { rootMargin: '-70px 0px 0px 0px' });
+    io.observe(target);
+    return () => io.disconnect();
+  }, []);
+  return <div className={cx('pstick', on && 'is-on')} aria-hidden={!on}><b translate="no">{name}</b><small translate="no">ABHA {abha}</small></div>;
 }

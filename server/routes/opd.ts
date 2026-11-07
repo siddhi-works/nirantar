@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { accessLog, editRequests, gatewayMessages, observations, opdSettings, opdVisits, patients, registeredPatients } from '../db/schema';
 import { NOT_FOUND, digits, patientOf, type AppCtx, type Ctx, type Env } from '../ctx';
 import { FACILITY_HFR } from '../seed';
+import { loadDemoDay } from '../opd-demo';
 import { addVisit, enteredMinutes, predict, visitsOn, type Visit } from '../opd';
 import { REG_ID, findPatientByAbha, holderOf, registeredPatient } from '../registry';
 import { FACILITIES } from '../sim/facilities';
@@ -61,6 +62,16 @@ export function opdRoutes({ db, requireUser }: AppCtx) {
     const v = await addVisit(db, { id: randomUUID(), workspace: u.workspace, hfrId: u.hfrId!, patientId: who.id, name: who.name, abha, source: 'desk', priority: body.data.priority ?? 'routine', status: 'waiting', byLabel: u.name });
     await db.insert(accessLog).values({ userId: u.id, role: u.role, action: 'opd-add', patientId: who.id, outcome: 'allowed' });
     return c.json({ token: v.token, ...(await snapshot(u.workspace, u.hfrId)) }, 201);
+  });
+
+  /** A made-up general-medicine OPD morning: six clearly labelled demo patients with records, all in today's queue. */
+  r.post('/opd/demo-day', requireUser('doctor', 'nurse'), async c => {
+    const u = c.get('user');
+    if (!u.hfrId) return c.json({ error: 'invalid', message: 'Sign in at a hospital first.' }, 400);
+    const added = await loadDemoDay(db, { id: u.id, workspace: u.workspace, hfrId: u.hfrId });
+    if (!added) return c.json({ error: 'invalid', message: 'The demo OPD day is already loaded here.' }, 409);
+    await db.insert(accessLog).values({ userId: u.id, role: u.role, action: 'load-demo-opd', patientId: '-', outcome: 'allowed' });
+    return c.json({ added, ...(await snapshot(u.workspace, u.hfrId)) }, 201);
   });
 
   /** What staff say one consultation takes, for the waiting time until enough real ones have been timed. */

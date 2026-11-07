@@ -81,3 +81,26 @@ What was done and measured, and what was not.
 - The access log and the gateway message log grow without bound in a hospital space. They need partitioning by month and a retention job. The daily clean-up only trims the sandbox's own tables.
 - A patient's own record (values, documents, visits) is loaded whole when opened. A patient with thousands of values needs paging there too.
 - Neon's free tier, the serverless function limits and the per-IP rate limits are sandbox settings, not capacity planning. No load test has been run through the deployed site.
+
+## Integration with a hospital's own system (about 500 patients a day in one department)
+
+Typing or uploading each patient's record by hand is not a workable answer at that volume, and Nirantar is not meant to be a second data-entry system. A hospital's information system (HIS) already holds the electronic prescription, the lab results (LIS) and often the scans (RIS and PACS). The routes below are in order of how I would build them. None of them is built yet except the first idea in simulation.
+
+1. **ABDM route (the standard one).** The hospital's HIS becomes a Health Information Provider (HIP): it links each visit to the patient's ABHA number as a care context, and serves the record as FHIR on request, encrypted, through the ABDM gateway. Nirantar acts as the Health Information User (HIU) and asks for it with the patient's consent. Nothing is typed. Vendor write-ups describe this as the identity milestone (M1), the provider milestone (M2) and the user milestone (M3), and say most of the work is producing correct FHIR. This is the route the consent and transfer simulation in this project already follows. It is pull-on-demand per patient, not a bulk feed.
+2. **A feed from the HIS for the hospital's own dashboards.** A scheduled export or an interface (HL7 v2 or FHIR from the HIS, or a nightly file) delivers the day's visits to Nirantar. Records are matched by UHID or ABHA, inserted once only (an external visit id prevents duplicates), and marked as imported from the HIS so every number still names its source. e-Hospital@NIC is described as built on HL7 and as exposing APIs for lab equipment and PACS. I found no published terms for third-party apps, so the interface has to be agreed with NIC or the vendor.
+3. **Capture at the point of writing.** The doctor writes the prescription once. New prescriptions are written on a blank canvas on a tablet or iPad, or printed to a PDF, and read automatically. Old paper prescriptions and outside reports are scanned. This is the convenient digitisation described by the clinicians. It covers whatever the HIS does not hold.
+4. **Not recommended:** asking staff to upload records one patient at a time.
+
+What this changes in the product: a bulk import endpoint with a hospital credential, duplicate protection, and a mapping from HIS codes to Nirantar's measures. Which of routes 1 or 2 to build first depends on the HIS the hospital runs. This is a decision for the team and the hospital IT, so it has not been started.
+
+## Nurse and doctor views
+
+Both sign in to the same workspace and see the same patients. They differ in what they are there to do.
+
+| | Nurse (ANM or GNM at the OPD station) | Doctor |
+|---|---|---|
+| First thing on the page | The queue, to call the next patient and take vitals | Scan a report, and open a patient |
+| On a patient's record | Record vitals (blood pressure, weight, height, pulse), checks on record and not on record, last visit at a glance, counselling and education, refer to the ASHA or USHA worker | Summary, trends with the source of every number, HOMA-IR, medicines, checks, review of read values, visit history |
+| Cannot do | Write advice or prescriptions | Record vitals is available but is the nurse's job |
+
+The ASHA and USHA referral is recorded in the system but no worker is notified yet, and the screen says so.

@@ -1,28 +1,28 @@
 :root {
   /* PRD §8.8 colour tokens */
-  --canvas: #F3F3F0;
+  --canvas: #F4F6F8;
   --card: #FFFFFF;
-  --ink: #1E3A4C;
+  --ink: #0B2A4A;
   --muted: #55666F;
-  --divider: #DCE2E1;
-  --terracotta: #B4472B;
-  --sage: #2E7D5B;
-  --cerulean: #357F78;
+  --divider: #D5DCE3;
+  --terracotta: #B3261E;
+  --sage: #1B7F4B;
+  --cerulean: #004B93;
   --tint: #E8EEEC;
   --warm: #F7E8E0;
 
   /* AA-safe text variants of the accent colours (the base tokens fail 4.5:1 on white as text) */
-  --terracotta-ink: #98391F;
+  --terracotta-ink: #8C1D18;
   --sage-ink: #1F6244;
-  --cerulean-ink: #286A64;
-  --cerulean-tint: #E6F1EE;
+  --cerulean-ink: #003F7F;
+  --cerulean-tint: #EEF3F8;
   --sage-tint: #E2F1E9;
   --ink-2: #2B4F66;
   --ink-soft: #3A5260;
   --paper: #FFFFFF;
   --line: #E4E9E8;
 
-  --font-display: 'Manrope', 'IBM Plex Sans Devanagari', system-ui, sans-serif;
+  --font-display: 'Public Sans', 'IBM Plex Sans Devanagari', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-body: 'Public Sans', 'IBM Plex Sans Devanagari', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --radius: 10px;
@@ -33,6 +33,6 @@
   --shadow-lg: 0 16px 48px rgba(18, 38, 63, .18);
   --side-w: 248px;
   --top-h: 60px;
-  --teal: #4FA8A0; --teal-deep: #357F78; --teal-pale: #E6F1EE; --teal-soft: #C9E4DE; --navy: #1E3A4C; --button-ink: #173140; --warm-grey: #E8E6E1;
+  --teal: #005EB8; --teal-deep: #004B93; --teal-pale: #EEF3F8; --teal-soft: #D3DEEA; --navy: #0B2A4A; --button-ink: #FFFFFF; --warm-grey: #E3E8ED;
   --ease: cubic-bezier(.2, .7, .2, 1);
 }

@@ -34,8 +34,8 @@ function ConsentRequestCard({ c, run }: { c: ExchangeConsent; run: (fn: () => Pr
         </div>
       </fieldset>
       <div className="row" style={{ gap: 8, marginTop: 8 }}>
-        <Button size="sm" disabled={!types.length} onClick={() => run(() => api.decideConsent(c.id, 'grant', { hiTypes: types, validityDays: validity, keepDays: keep }), 'Allowed. They can fetch your record now.')}>{t('Allow')}</Button>
-        <Button size="sm" variant="secondary" onClick={() => run(() => api.decideConsent(c.id, 'deny'), 'Declined')}>{t('Decline')}</Button>
+        <Button size="sm" disabled={!types.length} onClick={() => run(() => api.decideConsent(c.id, 'grant', { hiTypes: types, validityDays: validity, keepDays: keep }), 'Allowed. They can fetch your record now.')}>{t('Allow access')}</Button>
+        <Button size="sm" variant="secondary" onClick={() => run(() => api.decideConsent(c.id, 'deny'), 'Request declined')}>{t('Say no')}</Button>
       </div>
     </div>
   );
@@ -130,7 +130,7 @@ export function OtherHospitals() {
                 <span className="grow"><b className="num">ABHA {c.abha}</b><small>{c.purpose} · asked {fmtDate(c.requestedAt)}{c.expiresAt ? ` · until ${fmtDate(c.expiresAt)}` : ''}</small></span>
                 <span className={cx('chip', STATUS[c.status].tone)}>{STATUS[c.status].label}</span>
                 {c.receivedId && <Button size="sm" variant="secondary" onClick={() => setView(c.receivedId)}>Open record</Button>}
-                {c.status === 'granted' && <Button size="sm" onClick={() => fetchIt(c)} disabled={busy === c.id} icon={busy === c.id ? <Loader2 size={14} className="spin" /> : undefined}>{c.receivedId ? 'Fetch again' : 'Fetch record'}</Button>}
+                {c.status === 'granted' && <Button size="sm" onClick={() => fetchIt(c)} disabled={busy === c.id} icon={busy === c.id ? <Loader2 size={14} className="spin" /> : undefined}>{c.receivedId ? 'Get again' : 'Get record'}</Button>}
               </li>
             ))}
           </ul>
@@ -138,28 +138,6 @@ export function OtherHospitals() {
       </div>
       {view && <ReceivedPage id={view} onClose={() => setView(null)} />}
     </Card>
-  );
-}
-
-/** Shown to a doctor signed in at a hospital that does not hold the records: why there is no search box here. */
-export function VisitingBanner({ hospital, holder }: { hospital: string; holder: string }) {
-  return (
-    <section className="card" data-accent="cerulean">
-      <div className="card__body">
-        <div className="xban"><ShieldCheck size={16} /><span><b>{`You are signed in at ${hospital}.`}</b> {`The records in this sample are held at ${holder}, so you cannot open a patient here directly. Ask the patient for permission below. When they allow it, fetch a read-only copy of their record.`}</span></div>
-      </div>
-    </section>
-  );
-}
-
-/** Shown at the hospital that holds the records: where the exchange fits in. */
-export function HomeHospitalNote({ hospital, other }: { hospital: string; other: string }) {
-  return (
-    <section className="card" data-accent="cerulean">
-      <div className="card__body">
-        <div className="xban"><Building2 size={16} /><span><b>{`These records are held at ${hospital}`}</b>{`, so you open them directly. A doctor at another hospital, such as ${other}, cannot open them until the patient allows it. To see that from the other side, log out and use “Sign in as a doctor at another hospital”.`}</span></div>
-      </div>
-    </section>
   );
 }
 
@@ -174,7 +152,7 @@ export function PatientDirectory() {
   const [find, setFind] = useState('');
   const [typed, setTyped] = useState('');
   const [offset, setOffset] = useState(0);
-  const PAGE = 10;
+  const PAGE = 4;
   useEffect(() => { const id = setTimeout(() => { setFind(typed.trim()); setOffset(0); }, 300); return () => clearTimeout(id); }, [typed]);
   const { data: page, refetch } = useApi(() => api.directory({ q: find, limit: PAGE, offset }), [find, offset]);
   const data = page?.items;
@@ -184,30 +162,39 @@ export function PatientDirectory() {
   const list = data ?? [];
   return (
     <Card accent="cerulean">
-      <CardHead title="All patients" icon={<Building2 size={16} />} />
+      <CardHead title="Patients" icon={<Building2 size={16} />} />
       <div className="card__body">
-        <p className="hint">Every patient in this sandbox. A record is kept only at the hospital that registered the patient. For a patient held at another hospital, ask for access: they must allow it first.</p>
+        <p className="hint">Records stay at the hospital that registered the patient. For a patient held elsewhere, ask for access: the patient must allow it first.</p>
         <div className="field" style={{ margin: '10px 0' }}>
           <label htmlFor="dirq">Find a patient</label>
           <input id="dirq" className="input" type="search" value={typed} onChange={e => setTyped(e.target.value)} placeholder="Name, or the first digits of the ABHA number" />
         </div>
         {!page ? <p className="hint">Loading…</p> : list.length === 0 ? <p className="hint">No patient matches “{find}”.</p> : (
-          <ul className="xlist">
-            {list.map(p => (
-              <li key={p.patientId}>
-                <span className="grow"><b translate="no">{p.name}</b> <code translate="no">{p.abha}</code><small>Held at {p.holderName}</small></span>
-                {p.access === 'held' && <><span className="chip chip--sage">Held here</span><Button size="sm" variant="secondary" onClick={() => open(p.patientId)}>Open record</Button></>}
-                {(p.access === 'none' || p.access === 'denied' || p.access === 'revoked' || p.access === 'expired') && <>
-                  {p.access !== 'none' && <span className="chip chip--dashed">{STATUS[p.access].label}</span>}
-                  <Button size="sm" disabled={busy === p.patientId} onClick={() => run(p.patientId, () => api.requestConsent(p.abha, 'Treatment', 30, { hiTypes: ['OPConsultation', 'Prescription', 'DiagnosticReport'], keepDays: 30 }), 'Request sent. The patient must allow it.')}>Request access</Button></>}
-                {p.access === 'requested' && <span className={cx('chip', STATUS.requested.tone)}>{STATUS.requested.label}</span>}
-                {p.access === 'granted' && <>
-                  <span className={cx('chip', STATUS.granted.tone)}>Allowed</span>
-                  {p.receivedId && <Button size="sm" variant="secondary" onClick={() => setView(p.receivedId)}>Open copy</Button>}
-                  <Button size="sm" disabled={busy === p.patientId} onClick={() => run(p.patientId, async () => { const id = await api.fetchRecord(p.consentId!); setView(id); }, 'Record received')}>{p.receivedId ? 'Fetch again' : 'Fetch record'}</Button></>}
-              </li>
-            ))}
-          </ul>
+          <div className="tablewrap">
+            <table className="table">
+              <thead><tr><th scope="col">Patient</th><th scope="col">ABHA number</th><th scope="col">Record held at</th><th scope="col" className="opdtable__act">Access</th></tr></thead>
+              <tbody>
+                {list.map(p => (
+                  <tr key={p.patientId}>
+                    <td><b translate="no">{p.name.replace(/ \(demo\)$/, '')}</b>{/\(demo\)$/.test(p.name) && <span className="chip chip--dashed">Demo</span>}</td>
+                    <td><code translate="no">{p.abha}</code></td>
+                    <td><span translate="no">{p.holderName}</span></td>
+                    <td className="opdtable__act">
+                      {p.access === 'held' && <Button size="sm" variant="secondary" onClick={() => open(p.patientId)}>Open record</Button>}
+                      {(p.access === 'none' || p.access === 'denied' || p.access === 'revoked' || p.access === 'expired') && <>
+                        {p.access !== 'none' && <span className="chip chip--dashed">{STATUS[p.access].label}</span>}
+                        <Button size="sm" disabled={busy === p.patientId} onClick={() => run(p.patientId, () => api.requestConsent(p.abha, 'Treatment', 30, { hiTypes: ['OPConsultation', 'Prescription', 'DiagnosticReport'], keepDays: 30 }), 'Request sent. The patient must allow it.')}>Ask for access</Button></>}
+                      {p.access === 'requested' && <span className={cx('chip', STATUS.requested.tone)}>{STATUS.requested.label}</span>}
+                      {p.access === 'granted' && <>
+                        <span className={cx('chip', STATUS.granted.tone)}>Allowed</span>
+                        {p.receivedId && <Button size="sm" variant="secondary" onClick={() => setView(p.receivedId)}>Open copy</Button>}
+                        <Button size="sm" disabled={busy === p.patientId} onClick={() => run(p.patientId, async () => { const id = await api.fetchRecord(p.consentId!); setView(id); }, 'Record received')}>{p.receivedId ? 'Get again' : 'Get record'}</Button></>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         {page && page.total > PAGE && (
           <nav className="row" style={{ justifyContent: 'space-between', marginTop: 10 }} aria-label="Pages of patients">

@@ -16,15 +16,18 @@ import { Tx, useT } from '@/i18n';
 import { ReadAloud } from '@/i18n/controls';
 import { AskRecord } from './AskRecord';
 import { ScanShareCard } from './Opd';
-import { HowItWorks } from './Purpose';
 import { NextVisitCard, PatientNotifications } from './SampleCards';
+import { HomaCard } from './Homa';
+import { TrendChart } from '@/ui/charts/TrendChart';
+import { domainOf } from '@/ui/charts/scale';
+import { useUi } from '@/ui/store';
 import { NetworkLog } from './NavMenu';
-import { CorrectionCard, CounsellingCard } from './Care';
+import { AshaCard, CorrectionCard, CounsellingCard } from './Care';
 
 export default function PatientHome() {
   const user = useSession(s => s.user)!;
-  const view = useSession(s => s.view);
   const t = useT();
+  const openSource = useUi(s => s.openSource);
   const [uploading, setUploading] = useState(false);
   const { data: r, error, refetch } = useApi(() => api.getRecall(user.patientId!), [user.patientId]);
   if (error && !r) return <LoadError message={error} onRetry={refetch} />;
@@ -41,18 +44,11 @@ export default function PatientHome() {
     <div className="screen screen--patient">
       <TopBar />
       <main className="wrap wrap--narrow">
-        {view === 'main' ? (<>
-        <section className="hero hero--patient">
-          <div className="hero__text">
-            <span className="hero__tag"><span>{t('Your health record')}</span><time>ABHA {r.patient.abhaId}</time></span>
-            <h1>{t('Namaste, {name}', { name: r.patient.name.replace(/^Mrs?\. /, '') })}</h1>
-            <p>{t('Your sugar readings, medicines and checks, each linked to the report it came from.')}</p>
-            <div className="row" style={{ gap: 8 }}><ReadAloud sentences={speech} /></div>
-          </div>
-          <img className="hero__img" src="/img/walk.jpg" alt="" width="1200" height="900" />
-        </section>
-
-        <HowItWorks role="patient" />
+        <>
+        <header className="pagehead">
+          <div><h1>{t('My health record')}</h1><p translate="no">{r.patient.name} · ABHA {r.patient.abhaId}</p></div>
+          <ReadAloud sentences={speech} />
+        </header>
 
         <div className="cols cols--even" id="summary">
         <section className="card pcard2" data-accent="sage">
@@ -85,6 +81,21 @@ export default function PatientHome() {
 </div>
         </div>
 
+        <h2 className="sect" id="trends">{t('Your trends')}</h2>
+        <section className="card">
+          <div className="card__head"><h2 className="card__title">{t('Sugar over your visits')}</h2><span className="hint">{t('Select a point to see the report it came from.')}</span></div>
+          <div className="trio">
+            {(['hba1c', 'fbs', 'ppbs'] as const).map(c => (
+              <div key={c}>
+                <div className="trio__h"><b>{T[c].label}</b><span className="muted">{T[c].unit} · {t('target')} {T[c].target?.label}</span></div>
+                <TrendChart series={T[c]} domain={domainOf(r.changes.map(x => x.date), 22)} visitDates={r.changes.map(x => ({ visit: x.visit, date: x.date }))} height={170}
+                  onSelect={pt => pt.citation && openSource({ kind: 'citation', citation: pt.citation, patientId: r.patient.id, title: `${T[c].label} ${pt.value!.toFixed(T[c].decimals)} · ${fmtDate(pt.date)}` })} />
+              </div>
+            ))}
+          </div>
+        </section>
+        <HomaCard r={r} />
+
         <h2 className="sect" id="care">{t('Care')}</h2>
         <div className="cols cols--even">
           <div className="stack" style={{ gap: 18 }}><AskRecord patientId={user.patientId!} />
@@ -96,7 +107,7 @@ export default function PatientHome() {
         </section>
 
 </div>
-          <div className="stack" style={{ gap: 18 }}><CounsellingCard patientId={user.patientId!} role="patient" /><NextVisitCard /><PatientNotifications /></div>
+          <div className="stack" style={{ gap: 18 }}><CounsellingCard patientId={user.patientId!} role="patient" /><AshaCard patientId={user.patientId!} role="patient" /><NextVisitCard /><PatientNotifications /></div>
         </div>
 
         <h2 className="sect" id="reports">{t('Reports')}</h2>
@@ -115,13 +126,14 @@ export default function PatientHome() {
 
         </div>
 
-        </>) : (<>
+        </>
+        <>
         <h2 className="sect" id="sharing">{t('Sharing')}</h2>
         <div className="cols cols--even">
           <div className="stack" style={{ gap: 18 }}><ScanShareCard /><ConsentInbox /></div>
           <NetworkLog />
         </div>
-        </>)}
+        </>
         {uploading && <UploadDialog patientId={r.patient.id} patient onClose={() => setUploading(false)} />}
       </main>
     </div>

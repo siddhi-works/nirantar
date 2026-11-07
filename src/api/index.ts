@@ -2,9 +2,11 @@
  * The only door between the screens and the server. Every call goes to /api over HTTPS with the
  * session cookie; the browser holds no record data of its own and enforces no access rules.
  */
+import type { Complaint } from '@/domain/help';
+import type { AshaReferral } from '@/domain/asha';
 import type { DocumentView, LookupResult, ObservationItem, OtpCredentials, Counselling, DirectoryEntry, EditRequest, NetworkMessage, OpdMine, OpdQueue, RecordAnswer, RecordSummary, RegisteredPatient, RegistrationDraft, RegistrationInput, SandboxIdentity, SessionUser } from '@/domain/api';
 import type { DocumentItem } from '@/domain/documents';
-import type { ExchangeConsent, ReceivedRecordItem, ReceivedRecordView } from '@/domain/exchange';
+import type { ExchangeConsent, ReceivedRecordView } from '@/domain/exchange';
 import type { Recall } from '@/domain/types';
 
 export type { DocumentView };
@@ -129,7 +131,6 @@ export const api = {
   decideConsent: async (id: string, decision: 'grant' | 'deny', allow: { hiTypes?: string[]; validityDays?: number; keepDays?: number } = {}) => { await http(`/exchange/consents/${id}/decision`, { method: 'POST', body: { decision, ...allow } }); notify(); },
   revokeConsent: async (id: string) => { await http(`/exchange/consents/${id}/revoke`, { method: 'POST', body: {} }); notify(); },
   fetchRecord: async (id: string) => { const r = await http<{ receivedId: string }>(`/exchange/consents/${id}/fetch`, { method: 'POST', body: {} }); notify(); return r.receivedId; },
-  listReceived: () => http<{ items: ReceivedRecordItem[] }>('/exchange/received').then(r => r.items),
   getReceived: (id: string) => http<ReceivedRecordView>(`/exchange/received/${id}`),
   annotate: async (id: string, text: string) => { await http(`/exchange/received/${id}/annotations`, { method: 'POST', body: { text } }); notify(); },
   registrationIdentities: () => http<{ items: SandboxIdentity[] }>('/patients/register/identities').then(r => r.items),
@@ -156,6 +157,7 @@ export const api = {
   directory: (o: { q?: string; held?: boolean; limit?: number; offset?: number } = {}) => http<{ items: DirectoryEntry[]; total: number; offset: number; limit: number }>(`/patients/directory?${new URLSearchParams({ ...(o.q ? { q: o.q } : {}), ...(o.held ? { held: '1' } : {}), limit: String(o.limit ?? 25), offset: String(o.offset ?? 0) })}`),
   askGeneral: (question: string, lang: 'en' | 'hi') => http<RecordAnswer>('/glossary/ask', { method: 'POST', body: { question, lang } }),
   opdQueue: () => http<OpdQueue>('/opd/queue'),
+  opdDemoDay: async () => { await http('/opd/demo-day', { method: 'POST', body: {} }); notify(); },
   opdWalkIn: async (abha: string, priority?: 'routine' | 'urgent') => { await http('/opd/walk-in', { method: 'POST', body: { abha, priority } }); notify(); },
   opdAct: async (id: string, action: 'call' | 'done' | 'cancel' | 'priority') => { await http(`/opd/${id}/${action}`, { method: 'POST', body: {} }); notify(); },
   opdSetMinutes: async (minutesPerPatient: number) => { await http('/opd/settings', { method: 'POST', body: { minutesPerPatient } }); notify(); },
@@ -167,6 +169,10 @@ export const api = {
   listRegistered: (o: { limit?: number; offset?: number } = {}) => http<{ items: RegisteredPatient[]; total: number }>(`/patients/registered?limit=${o.limit ?? 25}&offset=${o.offset ?? 0}`),
   getOwnHome: (patientId: string) => http<{ profile: RegisteredPatient; values: { code: string; label: string; date: string; value: number | null; display: string; status: string; source: { origin: string; documentId: string | null; quote: string | null; by: string } }[] }>(`/patients/${encodeURIComponent(patientId)}/home`),
   getProfile: (patientId: string) => http<RegisteredPatient>(`/patients/${encodeURIComponent(patientId)}/profile`),
+  reportComplaint: (body: { kind: string; message: string; contact?: string }) => http<{ ok: true; reference: string }>('/help/complaints', { method: 'POST', body }),
+  listComplaints: () => http<{ items: Complaint[] }>('/help/complaints').then(r => r.items),
+  listAsha: (patientId: string) => http<{ items: AshaReferral[] }>(`/patients/${encodeURIComponent(patientId)}/asha-referrals`).then(r => r.items),
+  referToAsha: async (patientId: string, body: { worker: 'asha' | 'usha'; reason: string; note?: string }) => { await http(`/patients/${encodeURIComponent(patientId)}/asha-referrals`, { method: 'POST', body }); notify(); },
   askRecord: (patientId: string, question: string, lang: 'en' | 'hi') => http<RecordAnswer>(`/patients/${encodeURIComponent(patientId)}/ask`, { method: 'POST', body: { question, lang } }),
   retryDocument: async (docId: string) => { const r = await http<DocumentItem>(`/documents/${docId}/retry`, { method: 'POST', body: {} }); notify(); return r; },
   pushDocument: async (patientId: string, docId: string) => { await http(`/patients/${encodeURIComponent(patientId)}/documents/${docId}/push`, { method: 'POST', body: {} }); notify(); },

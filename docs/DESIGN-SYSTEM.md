@@ -47,11 +47,22 @@ One theme for every screen. Tokens live in `src/styles/tokens.css`; `src/styles/
 |---|---|
 | Tokens used | 534 `var(--…)` uses |
 | Hard-coded hex in components | 120 in legacy CSS files, 8 in TypeScript (chart strokes, logo) |
-| Dead CSS | about 34 rules in `features.css` for screens that no longer exist (profile 360, loop band, cohort board, gap rows) |
+| Dead CSS | 313 rules for screens that no longer exist were removed (checked by a script that keeps any class the code can build at run time, and by before/after screenshots) |
 | Duplicate naming | `terracotta`, `sage`, `cerulean` are token names kept from the old palette; their values are now alert red-orange, green and teal |
 
-Priority actions: delete the dead rules in `features.css`; move the remaining hex values in `components.css` onto tokens; rename the three legacy token names to `alert`, `ok` and `link`.
+Priority actions: move the remaining hex values in `components.css` onto tokens; rename the three legacy token names to `alert`, `ok` and `link`.
 
 ## Pictures
 
-`public/img/hero.jpg`, `clinic.jpg` and `walk.jpg` are original illustrations made for this project in the palette above. Replace them with licensed photographs of your own if you want real people on screen; keep 4:3 and under 150 KB.
+`public/img/clinic.jpg` is an original illustration made for this project, shown only on the sign-in screen. Nothing inside the app uses pictures. Replace it with a licensed photograph if you want one; keep 4:3 and under 150 KB.
+
+## Hospital-system patterns (added)
+
+| Pattern | Where | Rule |
+|---|---|---|
+| Facility strip | `.his-strip`, top of every signed-in page | Hospital, department and the signed-in person, so a screenshot always says whose screen it is |
+| Ruled rows | `.xlist`, `.table` | Dense rows with a hairline and an alternate tint, like a register, never cards inside cards |
+| Risk flags | `.riskflag`, `.chk .is-alert` | HIV, HCV and a past heart attack are written in red, only when recorded. Red is used for nothing else |
+| Source on every number | `SourceChip`, `SourceNote` | Unchanged: no number without its source |
+| Blank canvas | `BlankCanvas` in `UploadDocument.tsx` | A page for a stylus, iPad pen or finger. It becomes a PNG and goes through the same reading as a scan |
+| Demo and future-scope notes | `ScopeNote` | Unchanged. Demo patients also carry "(demo)" in their name |

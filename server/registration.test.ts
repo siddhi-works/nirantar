@@ -156,7 +156,7 @@ describe('documents for a registered patient', () => {
     ocrText = 'Name: Suresh Kumar Yadav\nDate 05/11/2026\nHbA1c 9.9%';
     const wrongName = await (await h.upload(id, PNG, 'x.png', 'Prescription', doctor)).json();
     expect(wrongName.status).toBe('failed');
-    expect(wrongName.error).toMatch(/name on this document does not match/);
+    expect(wrongName.error).toMatch(/names a different person/);
 
     ocrText = 'ABHA 93-3300-4456-7789\nDate 05/11/2026\nHbA1c 9.9%';
     const wrongAbha = await (await h.upload(id, PNG, 'y.png', 'Prescription', doctor)).json();

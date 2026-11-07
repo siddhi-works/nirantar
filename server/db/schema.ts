@@ -379,6 +379,30 @@ export const patientAdvice = pgTable('patient_advice', {
   at: ts('at').notNull().defaultNow(),
 }, t => [index('patient_advice_patient').on(t.workspace, t.patientId)]);
 
+/** A patient sent to the community health worker (ASHA in villages, USHA in cities) for follow-up at home. The worker is not notified by any system yet. */
+export const ashaReferrals = pgTable('asha_referrals', {
+  id: serial('id').primaryKey(),
+  workspace: text('workspace').notNull(),
+  patientId: text('patient_id').notNull(),
+  worker: text('worker').notNull(), // asha | usha
+  reason: text('reason').notNull(),
+  note: text('note'),
+  byLabel: text('by_label').notNull(),
+  at: ts('at').notNull().defaultNow(),
+}, t => [index('asha_referrals_patient').on(t.workspace, t.patientId)]);
+
+/** A complaint or problem report from a signed-in person. It is stored for the team; no one is notified automatically. */
+export const complaints = pgTable('complaints', {
+  id: serial('id').primaryKey(),
+  workspace: text('workspace').notNull(),
+  userId: text('user_id').notNull(),
+  role: text('role').notNull(),
+  category: text('category').notNull(),
+  message: text('message').notNull(),
+  contact: text('contact'),
+  at: ts('at').notNull().defaultNow(),
+}, t => [index('complaints_user').on(t.workspace, t.userId)]);
+
 /** Counselling and education given to a patient, and by whom. */
 export const educationLog = pgTable('education_log', {
   id: serial('id').primaryKey(),

@@ -11,7 +11,6 @@ import { AskRecord } from './AskRecord';
 import { ConsentInbox } from './Exchange';
 import { NetworkLog } from './NavMenu';
 import { ScanShareCard } from './Opd';
-import { HowItWorks } from './Purpose';
 import { NextVisitCard } from './SampleCards';
 import { ObsOverview, ObsTable, fmtWhen, type Obs } from './ReceivedDashboard';
 import { ReviewCard } from './Review';
@@ -25,7 +24,6 @@ const CONSENT = { 'create-record': 'A health record is kept for you', 'abha-link
  */
 export default function RegisteredPatientHome() {
   const user = useSession(s => s.user)!;
-  const view = useSession(s => s.view);
   const id = user.patientId!;
   const home = useApi(() => api.getOwnHome(id), [id]);
   const [uploading, setUploading] = useState(false);
@@ -38,20 +36,13 @@ export default function RegisteredPatientHome() {
     <div className="screen screen--patient">
       <TopBar />
       <main className="wrap wrap--narrow">
-        {view === 'main' ? (<>
-        <section className="hero hero--patient">
-          <div className="hero__text">
-            <span className="hero__tag"><span>Your health record</span><time>ABHA {p.abha}</time></span>
-            <h1>Namaste, {p.name}</h1>
-            <p>Only what is on record is shown here. Anything missing says so.</p>
-          </div>
-          <img className="hero__img" src="/img/walk.jpg" alt="" width="1200" height="900" />
-        </section>
-
-        <HowItWorks role="patient" />
+        <>
+        <header className="pagehead">
+          <div><h1>My health record</h1><p translate="no">{p.name} · ABHA {p.abha}</p></div>
+        </header>
 
         <div className="cols" id="summary">
-          <div className="stack" style={{ gap: 18 }}>{obs.length === 0
+          <div className="stack" id="trends" style={{ gap: 18 }}>{obs.length === 0
           ? <div className="xban" role="status"><Info size={16} /><span><b>Nothing has been recorded for you yet.</b> Values appear here after your doctor or nurse records them, or after you upload a report and they confirm what is read from it.</span></div>
           : <><ObsOverview obs={obs} /><ObsTable obs={obs} /></>}
 
@@ -92,7 +83,8 @@ export default function RegisteredPatientHome() {
 
         </div>
 
-        </>) : (<>
+        </>
+        <>
         <h2 className="sect" id="sharing">Sharing</h2>
         <div className="cols cols--even">
           <div className="stack" style={{ gap: 18 }}>        <ConsentInbox />
@@ -100,7 +92,7 @@ export default function RegisteredPatientHome() {
                   <NetworkLog />
 
         </div>
-        </>)}
+        </>
       </main>
       {uploading && <UploadDialog patientId={id} onClose={() => setUploading(false)} patient />}
     </div>

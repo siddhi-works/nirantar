@@ -23,7 +23,7 @@ describe('the summary', () => {
       expect(s.text, id).toMatch(/HbA1c/);
     }
     const p1 = (await (await h.get('/patients/P1/summary', doctor)).json()).text as string;
-    expect(p1).toMatch(/HbA1c went from 6\.5% \(3 Dec 2026\) to 5\.9% \(3 Dec 2027\)/);
+    expect(p1).toMatch(/HbA1c went from 6\.5% \(3 Oct 2025\) to 5\.9% \(3 Oct 2026\)/);
     expect(p1).toMatch(/Mr\. Rajesh Kumar Singh is a 50-year-old man/);
     expect(p1).toMatch(/Metformin/);
     expect(p1).toMatch(/Not on record:/);

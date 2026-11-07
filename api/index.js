@@ -52149,7 +52149,9 @@ var schema_exports = {};
 __export(schema_exports, {
   abdmTransfers: () => abdmTransfers,
   accessLog: () => accessLog,
+  ashaReferrals: () => ashaReferrals,
   authAttempts: () => authAttempts,
+  complaints: () => complaints,
   consentEvents: () => consentEvents,
   consents: () => consents,
   documents: () => documents,
@@ -52525,6 +52527,27 @@ var patientAdvice = pgTable("patient_advice", {
   byLabel: text("by_label").notNull(),
   at: ts2("at").notNull().defaultNow()
 }, (t2) => [index("patient_advice_patient").on(t2.workspace, t2.patientId)]);
+var ashaReferrals = pgTable("asha_referrals", {
+  id: serial("id").primaryKey(),
+  workspace: text("workspace").notNull(),
+  patientId: text("patient_id").notNull(),
+  worker: text("worker").notNull(),
+  // asha | usha
+  reason: text("reason").notNull(),
+  note: text("note"),
+  byLabel: text("by_label").notNull(),
+  at: ts2("at").notNull().defaultNow()
+}, (t2) => [index("asha_referrals_patient").on(t2.workspace, t2.patientId)]);
+var complaints = pgTable("complaints", {
+  id: serial("id").primaryKey(),
+  workspace: text("workspace").notNull(),
+  userId: text("user_id").notNull(),
+  role: text("role").notNull(),
+  category: text("category").notNull(),
+  message: text("message").notNull(),
+  contact: text("contact"),
+  at: ts2("at").notNull().defaultNow()
+}, (t2) => [index("complaints_user").on(t2.workspace, t2.userId)]);
 var educationLog = pgTable("education_log", {
   id: serial("id").primaryKey(),
   workspace: text("workspace").notNull(),
@@ -54573,6 +54596,7 @@ var OBS_DEFS = [
   n("hba1c", "HbA1c", "glycaemic", "%", 3, 20, 1),
   n("fbs", "Fasting glucose (FBS)", "glycaemic", "mg/dL", 30, 600),
   n("ppbs", "Post-meal glucose (PPBS)", "glycaemic", "mg/dL", 30, 800),
+  n("insulin", "Fasting insulin", "glycaemic", "\xB5U/mL", 0.5, 500, 1),
   n("sbp", "Systolic BP", "vitals", "mmHg", 60, 260),
   n("dbp", "Diastolic BP", "vitals", "mmHg", 30, 160),
   n("pulse", "Pulse", "vitals", "/min", 30, 220),
@@ -54588,6 +54612,9 @@ var OBS_DEFS = [
   c("retina", "Retinal exam", "exam", [["no retinopathy", "No retinopathy"], ["non-proliferative retinopathy", "Non-proliferative retinopathy"], ["proliferative retinopathy", "Proliferative retinopathy"], ["not gradable", "Not gradable, repeat needed"]]),
   c("foot", "Foot exam", "exam", [["normal", "Normal, sensation intact"], ["abnormal", "Abnormal"]]),
   c("neuropathy", "Neuropathy exam", "exam", [["absent", "No neuropathy found"], ["present", "Neuropathy found"]]),
+  c("hiv", "HIV status", "history", [["negative", "Negative"], ["positive", "Positive"], ["not tested", "Not tested"]]),
+  c("hcv", "HCV (hepatitis C) status", "history", [["negative", "Negative"], ["positive", "Positive"], ["not tested", "Not tested"]]),
+  c("prior-mi", "Past heart attack (MI)", "history", [["no", "No"], ["yes", "Yes, had a heart attack"]]),
   c("osa-screen", "Sleep apnoea screening", "screening", [["negative", "Screen negative"], ["positive", "Screen positive"]])
 ];
 var OBS_BY_CODE = Object.fromEntries(OBS_DEFS.map((d2) => [d2.code, d2]));
@@ -55198,12 +55225,32 @@ function cite(doc, field, sub, opts = {}) {
 var NAME_MAP = [
   ["Mrs. Dummy 2", "Mrs. Savitri Devi Pandey"],
   ["Mr. Dummy 1", "Mr. Rajesh Kumar Singh"],
+  // one hospital, one doctor: both patients' slips name the doctor who signs in at the hospital that holds them, with the same registration number
   ["Dr. ABC", "Dr. Swati Mani"],
-  ["Dr. XYZ", "Dr. Arvind Sinha"]
+  ["Dr. XYZ", "Dr. Swati Mani"],
+  ['"reg_no":"12345"', '"reg_no":"98761"'],
+  // the first patient is held at Gorakhpur, so he lives near it, not in Patna (which is the other hospital's city)
+  ["Patna, Bihar", "Kushinagar, U.P."],
+  ["Patna", "Kushinagar"],
+  // the workbook's dates run from 2000 to 2027. They are moved so every visit is in the past and the two timelines sit in the same recent years.
+  ["2026-12-03", "2025-10-03"],
+  ["2027-03-03", "2026-01-03"],
+  ["2027-06-03", "2026-04-03"],
+  ["2027-09-03", "2026-07-03"],
+  ["2027-12-03", "2026-10-03"],
+  ["2000-08-04", "2025-08-04"],
+  ["2000-09-04", "2025-09-04"],
+  ["2000-11-04", "2025-11-04"],
+  ["2001-02-04", "2026-02-04"],
+  ["2001-05-04", "2026-05-04"],
+  ["03/12/2026", "03/10/2025"],
+  ["03/12/2027", "03/10/2026"],
+  ["04/08/2000", "04/08/2025"],
+  ["04/05/2001", "04/05/2026"],
+  ["March 2027", "January 2026"]
 ];
 var localised = NAME_MAP.reduce((acc, [a3, b3]) => acc.split(a3).join(b3), JSON.stringify(his_default));
 var data = JSON.parse(localised);
-var HIS_NOTES = data.notes;
 var HIS_TRENDS = data.trends;
 var HIS_MED_VS_TREND = data.medVsTrend;
 var HIS_AI = data.aiSummary;
@@ -55570,7 +55617,7 @@ async function removeWorkspace(db, ws2) {
       await db.delete(users).where(inArray(users.id, made));
     }
   }
-  for (const t2 of [opdVisits, opdSettings, editRequests, educationLog, patientAdvice, gatewayMessages, hipConsentCopies, consentEvents]) await db.delete(t2).where(eq(t2.workspace, ws2));
+  for (const t2 of [opdVisits, opdSettings, editRequests, educationLog, patientAdvice, ashaReferrals, complaints, gatewayMessages, hipConsentCopies, consentEvents]) await db.delete(t2).where(eq(t2.workspace, ws2));
   await db.delete(registeredPatients).where(eq(registeredPatients.workspace, ws2));
   await db.delete(registrationDrafts).where(eq(registrationDrafts.workspace, ws2));
   for (const t2 of [documents, observations, observationVersions, factVerifications, simCareContexts]) await db.delete(t2).where(like(t2.patientId, mine));
@@ -75523,6 +75570,40 @@ function profileRoutes({ db, requireUser }) {
   return r2;
 }
 
+// src/domain/help.ts
+var COMPLAINT_KINDS = [
+  { id: "wrong-record", label: "A record shows wrong or missing information" },
+  { id: "not-working", label: "Something on the screen is not working" },
+  { id: "privacy", label: "A privacy or consent concern" },
+  { id: "service", label: "The service or the way I was treated" },
+  { id: "other", label: "Something else" }
+];
+
+// server/routes/help.ts
+function helpRoutes({ db, requireUser }) {
+  const r2 = new Hono3();
+  r2.post("/help/complaints", requireUser(), async (c3) => {
+    const me2 = c3.get("user");
+    const body = external_exports.object({
+      kind: external_exports.enum(COMPLAINT_KINDS.map((k2) => k2.id)),
+      message: external_exports.string().trim().min(10).max(1e3),
+      contact: external_exports.string().trim().max(120).optional()
+    }).safeParse(await c3.req.json().catch(() => null));
+    if (!body.success) return c3.json({ error: "invalid", message: "Choose what it is about and describe it in at least a sentence." }, 400);
+    const key2 = `complaint:${me2.id}:${me2.workspace}`;
+    if (await countRequests(db, key2) >= 5) return c3.json({ error: "too_many_attempts", message: "You have sent several reports already. Please wait before sending another." }, 429);
+    await record2(db, key2, true);
+    const [row] = await db.insert(complaints).values({ workspace: me2.workspace, userId: me2.id, role: me2.role, category: body.data.kind, message: body.data.message, contact: body.data.contact || null }).returning({ id: complaints.id });
+    return c3.json({ ok: true, reference: `NC-${String(row.id).padStart(5, "0")}` }, 201);
+  });
+  r2.get("/help/complaints", requireUser(), async (c3) => {
+    const me2 = c3.get("user");
+    const rows = await db.select().from(complaints).where(and(eq(complaints.workspace, me2.workspace), eq(complaints.userId, me2.id))).orderBy(desc(complaints.id)).limit(10);
+    return c3.json({ items: rows.map((x4) => ({ id: x4.id, kind: x4.category, message: x4.message, at: x4.at.toISOString() })) });
+  });
+  return r2;
+}
+
 // src/domain/forms.ts
 var PROTOCOL = {
   version: "proto-0.1",
@@ -77045,7 +77126,7 @@ function identityCheck(pages, who) {
   const seen = [...text2.matchAll(ABHA)].map((m2) => m2.slice(1, 5).join(""));
   if (seen.length && !seen.includes(who.abha)) return { ok: false, reason: `This document carries a different ABHA number (ending ${seen[0].slice(-4)}), so it was not added to ${who.name}\u2019s record.` };
   const printed = NAME.exec(text2)?.[1]?.trim();
-  if (printed && !nameMatches(printed, who.name)) return { ok: false, reason: `The name on this document does not match ${who.name}, so it was not added to the record.` };
+  if (printed && !nameMatches(printed, who.name)) return { ok: false, reason: `This report names a different person. It was not added. Check you picked ${who.name}, then upload again.` };
   return { ok: true };
 }
 
@@ -77386,6 +77467,7 @@ function open2(sealed, receiverPrivateKey, receiverNonce) {
 // server/sim/fhir.ts
 import { randomUUID as randomUUID5 } from "node:crypto";
 var LOINC = {
+  insulin: { code: "20448-7", display: "Insulin [Units/volume] in Serum or Plasma" },
   hba1c: { code: "4548-4", display: "Hemoglobin A1c/Hemoglobin.total in Blood" },
   fbs: { code: "1558-6", display: "Fasting glucose [Mass/volume] in Serum or Plasma" },
   ppbs: { code: "1521-4", display: "Glucose [Mass/volume] in Serum or Plasma --2 hours post meal" },
@@ -77401,7 +77483,7 @@ var LOINC = {
   tg: { code: "2571-8", display: "Triglyceride [Mass/volume] in Serum or Plasma" },
   alt: { code: "1742-6", display: "Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma" }
 };
-var CATEGORY = { glycaemic: "laboratory", kidney: "laboratory", lipid: "laboratory", liver: "laboratory", vitals: "vital-signs", exam: "exam", screening: "survey" };
+var CATEGORY = { glycaemic: "laboratory", kidney: "laboratory", lipid: "laboratory", liver: "laboratory", vitals: "vital-signs", exam: "exam", history: "social-history", screening: "survey" };
 function observation(f2, patientRef, i3) {
   if (f2.kind !== "observation" || f2.value === void 0 || f2.value === null) return null;
   const def = OBS_BY_CODE[f2.code];
@@ -77464,7 +77546,7 @@ function buildRegisteredBundle(p3, rows, hip, at2 = /* @__PURE__ */ new Date(), 
       id: `obs-${i3}`,
       status: "final",
       category: [{ coding: [{ system: "http://terminology.hl7.org/CodeSystem/observation-category", code: CATEGORY[def?.group ?? ""] ?? "laboratory" }] }],
-      code: { ...loinc ? { coding: [{ system: "http://loinc.org", code: loinc.code, display: loinc.display }] } : {}, text: def?.label ?? r2.code },
+      code: { coding: loinc ? [{ system: "http://loinc.org", code: loinc.code, display: loinc.display }] : [{ system: "urn:nirantar:obs", code: r2.code }], text: def?.label ?? r2.code },
       subject: { reference: "Patient/pat" },
       effectiveDateTime: r2.obsDate,
       ...r2.origin ? { note: [{ text: `Source: ${r2.origin === "upload" ? "read from an uploaded report" : "entered"} and confirmed by ${r2.byLabel ?? "staff"} at ${hip.name}` }] } : {},
@@ -78611,7 +78693,7 @@ function registrationRoutes({ db, requireUser, open: open3 }) {
     if (docs.length) await db.delete(fileBlobs).where(inArray(fileBlobs.id, docs.map((d2) => d2.id)));
     for (const t2 of [documents, observations, observationVersions, factVerifications, simCareContexts]) await db.delete(t2).where(eq(t2.patientId, key2));
     await db.delete(consentEvents).where(eq(consentEvents.patientId, p3.id));
-    for (const t2 of [opdVisits, editRequests, educationLog, patientAdvice]) await db.delete(t2).where(and(eq(t2.workspace, p3.workspace), eq(t2.patientId, p3.id)));
+    for (const t2 of [opdVisits, editRequests, educationLog, patientAdvice, ashaReferrals]) await db.delete(t2).where(and(eq(t2.workspace, p3.workspace), eq(t2.patientId, p3.id)));
     const login = await db.select({ id: users.id }).from(users).where(eq(users.patientId, p3.id));
     if (login.length) {
       await db.delete(sessions).where(inArray(sessions.userId, login.map((l2) => l2.id)));
@@ -78625,7 +78707,10 @@ function registrationRoutes({ db, requireUser, open: open3 }) {
 }
 
 // server/routes/opd.ts
-import { randomUUID as randomUUID8 } from "node:crypto";
+import { randomUUID as randomUUID9 } from "node:crypto";
+
+// server/opd-demo.ts
+import { randomUUID as randomUUID8, randomInt as randomInt3 } from "node:crypto";
 
 // server/opd.ts
 var minutesBetween = (a3, b3) => (b3.getTime() - a3.getTime()) / 6e4;
@@ -78675,6 +78760,90 @@ async function addVisit(db, v3, now = /* @__PURE__ */ new Date()) {
     }
   }
   throw new Error("Could not issue a token.");
+}
+
+// server/opd-demo.ts
+var DEMO_LABEL = "Demo OPD \xB7 sample data";
+var PATIENTS = [
+  { name: "Ramesh Chandra Gupta (demo)", age: 58, sex: "M", place: "Gorakhpur", rows: [
+    { daysAgo: 182, v: { hba1c: 8.4, fbs: 162, ppbs: 236 } },
+    { daysAgo: 91, v: { hba1c: 7.9, fbs: 148, ppbs: 210, weight: 76 } },
+    { daysAgo: 12, v: { hba1c: 7.2, fbs: 131, ppbs: 186, weight: 74, sbp: 138, dbp: 86, height: 168 } }
+  ] },
+  { name: "Sunita Kumari Verma (demo)", age: 49, sex: "F", place: "Deoria", rows: [
+    { daysAgo: 150, v: { hba1c: 7.1, fbs: 128, ppbs: 190, insulin: 15.1 } },
+    { daysAgo: 20, v: { hba1c: 6.8, fbs: 118, ppbs: 172, insulin: 12.6, weight: 71, height: 157 } }
+  ] },
+  { name: "Mohammed Irfan Ansari (demo)", age: 61, sex: "M", place: "Kushinagar", rows: [
+    { daysAgo: 200, v: { hba1c: 9.2, fbs: 196, ppbs: 288, "prior-mi": "yes", hcv: "negative" } },
+    { daysAgo: 100, v: { hba1c: 8.8, fbs: 176, ppbs: 262 } },
+    { daysAgo: 9, v: { hba1c: 8.1, fbs: 158, ppbs: 231, sbp: 146, dbp: 90, weight: 82, height: 170 } }
+  ] },
+  { name: "Lata Devi Mishra (demo)", age: 44, sex: "F", place: "Gorakhpur", rows: [
+    { daysAgo: 60, v: { hba1c: 6.3, fbs: 112, ppbs: 150, insulin: 13.4, hiv: "negative" } },
+    { daysAgo: 6, v: { hba1c: 6.2, fbs: 108, ppbs: 146, insulin: 11.8, weight: 68, height: 154 } }
+  ] },
+  { name: "Harish Prasad Tiwari (demo)", age: 66, sex: "M", place: "Maharajganj", rows: [
+    { daysAgo: 120, v: { hba1c: 7.8, fbs: 142, ppbs: 205, hcv: "positive" } },
+    { daysAgo: 15, v: { hba1c: 7.5, fbs: 136, ppbs: 198, sbp: 132, dbp: 82, weight: 70, height: 165 } }
+  ] },
+  { name: "Geeta Rani Pathak (demo)", age: 37, sex: "F", place: "Basti", rows: [{ daysAgo: 3, v: { hba1c: 6.9, fbs: 121, ppbs: 178 } }] }
+];
+var dayOf = (daysAgo) => {
+  const d2 = /* @__PURE__ */ new Date();
+  d2.setDate(d2.getDate() - daysAgo);
+  return d2.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+};
+async function loadDemoDay(db, user) {
+  const [have] = await db.select({ n: count() }).from(registeredPatients).where(and(eq(registeredPatients.workspace, user.workspace), eq(registeredPatients.hfrId, user.hfrId), like(registeredPatients.name, "% (demo)")));
+  if ((have?.n ?? 0) > 0) return 0;
+  const now = /* @__PURE__ */ new Date();
+  let added = 0;
+  for (const p3 of PATIENTS) {
+    const id = `R${randomInt3(0, 4294967295).toString(16).padStart(8, "0")}`;
+    const abha = simulatedAbha();
+    await db.insert(registeredPatients).values({
+      id,
+      workspace: user.workspace,
+      hfrId: user.hfrId,
+      abha,
+      abhaSource: "created",
+      name: p3.name,
+      age: p3.age,
+      sex: p3.sex,
+      phone: "9876500000",
+      place: p3.place,
+      verifiedAt: now,
+      verifyMethod: "demo",
+      consentPurposes: "create-record,abha-link",
+      consentVersion: "demo",
+      consentMode: "in-person-verbal",
+      consentAt: now,
+      byUserId: user.id,
+      byLabel: DEMO_LABEL
+    });
+    for (const row of p3.rows) {
+      const groupId = randomUUID8();
+      for (const [code, value] of Object.entries(row.v)) {
+        await db.insert(observations).values({
+          id: randomUUID8(),
+          patientId: scope(id, user.workspace),
+          code,
+          valueNum: typeof value === "number" ? value : null,
+          valueText: typeof value === "string" ? value : null,
+          obsDate: dayOf(row.daysAgo),
+          origin: "entry",
+          status: "verified",
+          groupId,
+          byUserId: user.id,
+          byLabel: DEMO_LABEL
+        });
+      }
+    }
+    await addVisit(db, { id: randomUUID8(), workspace: user.workspace, hfrId: user.hfrId, patientId: id, name: p3.name, abha, source: "desk", priority: "routine", status: "waiting", byLabel: DEMO_LABEL });
+    added++;
+  }
+  return added;
 }
 
 // server/routes/opd.ts
@@ -78728,9 +78897,17 @@ function opdRoutes({ db, requireUser }) {
     if (!who) return c3.json({ error: "invalid", message: "No patient with this ABHA number was found." }, 404);
     const today3 = await visitsOn(db, u2.workspace, u2.hfrId, todayIST());
     if (today3.some((v4) => v4.patientId === who.id && (v4.status === "waiting" || v4.status === "ongoing"))) return c3.json({ error: "invalid", message: `${who.name} is already in today\u2019s queue.` }, 409);
-    const v3 = await addVisit(db, { id: randomUUID8(), workspace: u2.workspace, hfrId: u2.hfrId, patientId: who.id, name: who.name, abha, source: "desk", priority: body.data.priority ?? "routine", status: "waiting", byLabel: u2.name });
+    const v3 = await addVisit(db, { id: randomUUID9(), workspace: u2.workspace, hfrId: u2.hfrId, patientId: who.id, name: who.name, abha, source: "desk", priority: body.data.priority ?? "routine", status: "waiting", byLabel: u2.name });
     await db.insert(accessLog).values({ userId: u2.id, role: u2.role, action: "opd-add", patientId: who.id, outcome: "allowed" });
     return c3.json({ token: v3.token, ...await snapshot(u2.workspace, u2.hfrId) }, 201);
+  });
+  r2.post("/opd/demo-day", requireUser("doctor", "nurse"), async (c3) => {
+    const u2 = c3.get("user");
+    if (!u2.hfrId) return c3.json({ error: "invalid", message: "Sign in at a hospital first." }, 400);
+    const added = await loadDemoDay(db, { id: u2.id, workspace: u2.workspace, hfrId: u2.hfrId });
+    if (!added) return c3.json({ error: "invalid", message: "The demo OPD day is already loaded here." }, 409);
+    await db.insert(accessLog).values({ userId: u2.id, role: u2.role, action: "load-demo-opd", patientId: "-", outcome: "allowed" });
+    return c3.json({ added, ...await snapshot(u2.workspace, u2.hfrId) }, 201);
   });
   r2.post("/opd/settings", requireUser("doctor", "nurse"), async (c3) => {
     const u2 = c3.get("user");
@@ -78779,8 +78956,8 @@ function opdRoutes({ db, requireUser }) {
     if (already) return c3.json(await mineView(u2.workspace, u2.patientId));
     const reg = REG_ID.test(u2.patientId) ? await registeredPatient(db, u2.patientId) : void 0;
     const [row] = reg ? [{ abha: reg.abha }] : await db.select().from(patients).where(eq(patients.id, u2.patientId)).limit(1);
-    const v3 = await addVisit(db, { id: randomUUID8(), workspace: u2.workspace, hfrId: hfr, patientId: u2.patientId, name: reg?.name ?? patientOf(u2.patientId)?.name ?? u2.name, abha: row?.abha ?? null, source: "scan-and-share", status: "waiting", byLabel: "Patient (QR)" });
-    const rid = randomUUID8();
+    const v3 = await addVisit(db, { id: randomUUID9(), workspace: u2.workspace, hfrId: hfr, patientId: u2.patientId, name: reg?.name ?? patientOf(u2.patientId)?.name ?? u2.name, abha: row?.abha ?? null, source: "scan-and-share", status: "waiting", byLabel: "Patient (QR)" });
+    const rid = randomUUID9();
     await log(u2.workspace, rid, "phr-app", "hie-cm", "/scan", "The patient scanned the hospital QR code");
     await log(u2.workspace, rid, "hie-cm", "hip", "/v3/hip/patient/profile/share", "The patient\u2019s profile was shared with their consent");
     await log(u2.workspace, rid, "hip", "hie-cm", "/v3/hip/patient/profile/on-share", `Token ${v3.token} issued`);
@@ -78844,7 +79021,7 @@ function opdRoutes({ db, requireUser }) {
 }
 
 // server/routes/care.ts
-import { randomUUID as randomUUID9 } from "node:crypto";
+import { randomUUID as randomUUID10 } from "node:crypto";
 
 // src/domain/profile.ts
 var monthsBetween2 = (a3, b3) => {
@@ -78871,6 +79048,16 @@ function complications(r2) {
   if (prot) add("Urine protein positive", prot.date, prot.citation);
   return out;
 }
+
+// src/domain/asha.ts
+var ASHA_REASONS = [
+  { id: "home-visit", label: "Follow-up visit at home" },
+  { id: "missed-visit", label: "Missed the review, please bring them back" },
+  { id: "diet-walking", label: "Diet and walking counselling at home" },
+  { id: "medicine-reminder", label: "Medicine reminders" },
+  { id: "foot-check", label: "Foot check at home" },
+  { id: "screening-camp", label: "Take to a screening camp" }
+];
 
 // server/care/summary.ts
 var words = (s2) => s2.trim().split(/\s+/).filter(Boolean).length;
@@ -79019,6 +79206,25 @@ function careRoutes({ db, requireUser, open: open3, opsFor }) {
     await db.insert(patientAdvice).values({ workspace: u2.workspace, patientId: id.data, text: body.data.text, byLabel: u2.name });
     return c3.json({ ok: true }, 201);
   });
+  r2.post("/patients/:id/asha-referrals", requireUser("doctor", "nurse"), async (c3) => {
+    const id = patientIdParam.safeParse(c3.req.param("id"));
+    const body = external_exports.object({ worker: external_exports.enum(["asha", "usha"]), reason: external_exports.enum(ASHA_REASONS.map((x4) => x4.id)), note: external_exports.string().trim().max(200).optional() }).safeParse(await c3.req.json().catch(() => null));
+    if (!id.success || !await open3(c3, id.data, "refer-to-asha")) return c3.json(NOT_FOUND, 404);
+    if (!body.success) {
+      const e2 = bad("Choose the worker and the reason.");
+      return c3.json(e2.body, e2.status);
+    }
+    const u2 = c3.get("user");
+    await db.insert(ashaReferrals).values({ workspace: u2.workspace, patientId: id.data, worker: body.data.worker, reason: body.data.reason, note: body.data.note || null, byLabel: u2.name });
+    return c3.json({ ok: true }, 201);
+  });
+  r2.get("/patients/:id/asha-referrals", requireUser(), async (c3) => {
+    const id = patientIdParam.safeParse(c3.req.param("id"));
+    if (!id.success || !await open3(c3, id.data, "view-asha-referrals")) return c3.json(NOT_FOUND, 404);
+    const u2 = c3.get("user");
+    const rows = await db.select().from(ashaReferrals).where(and(eq(ashaReferrals.workspace, u2.workspace), eq(ashaReferrals.patientId, id.data))).orderBy(desc(ashaReferrals.id)).limit(20);
+    return c3.json({ items: rows.map((x4) => ({ id: x4.id, worker: x4.worker, reason: x4.reason, note: x4.note, by: x4.byLabel, at: x4.at.toISOString() })) });
+  });
   r2.post("/patients/:id/education", requireUser("doctor", "nurse"), async (c3) => {
     const id = patientIdParam.safeParse(c3.req.param("id"));
     const body = external_exports.object({ topic: external_exports.string().max(20) }).safeParse(await c3.req.json().catch(() => null));
@@ -79059,7 +79265,7 @@ function careRoutes({ db, requireUser, open: open3, opsFor }) {
       const e2 = bad("You already have 10 requests waiting. Please wait for them to be answered.", 409);
       return c3.json(e2.body, e2.status);
     }
-    const row = { id: randomUUID9(), workspace: u2.workspace, patientId: id.data, subject: body.data.subject, subjectRef: body.data.subjectRef ?? null, proposed: body.data.proposed, reason: body.data.reason, status: "pending", byLabel: u2.name };
+    const row = { id: randomUUID10(), workspace: u2.workspace, patientId: id.data, subject: body.data.subject, subjectRef: body.data.subjectRef ?? null, proposed: body.data.proposed, reason: body.data.reason, status: "pending", byLabel: u2.name };
     await db.insert(editRequests).values(row);
     return c3.json({ id: row.id }, 201);
   });
@@ -79131,6 +79337,7 @@ function createApp(deps) {
   });
   app.route("/", authRoutes(ctx));
   app.route("/", profileRoutes(ctx));
+  app.route("/", helpRoutes(ctx));
   app.route("/", registrationRoutes(ctx));
   app.route("/", patientRoutes(ctx));
   app.route("/", observationRoutes(ctx));

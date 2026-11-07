@@ -7,11 +7,13 @@ import { useSession } from '@/session';
 import { originalPdfUrl } from '@/domain/originals';
 import { Button, Card, CardHead, SkeletonCard, SourceChip } from '@/ui/primitives';
 import { useUi } from '@/ui/store';
-import { LoadError, TopBar } from './Chrome';
+import { LoadError, TopBar, PatientStick } from './Chrome';
+import { RiskFlags } from './Homa';
+import { Fold } from '@/ui/Fold';
 import { UploadDialog } from './UploadDocument';
 import { ChecksList, buildChecks } from './Checks';
 import { RecordDialog } from './RecordResult';
-import { CorrectionCard, CounsellingCard, SummaryBlock } from './Care';
+import { AshaCard, CorrectionCard, CounsellingCard, SummaryBlock } from './Care';
 import { ReviewCard } from './Review';
 import { bmi as bmiOf } from '@/domain/observations';
 import { vitalsNote } from '@/domain/profile';
@@ -53,9 +55,10 @@ export default function NursePatient() {
     <div className="screen">
       <TopBar right={<Button variant="secondary" size="sm" onClick={close} icon={<ArrowLeft size={14} />}>Exit to dashboard</Button>} />
       <main className="wrap wrap--wide">
+        <PatientStick name={p.name} abha={p.abhaId} />
         <Card accent="ink" className="phead"><div className="phead__row">
           <span className="avatar">{p.initials}</span>
-          <div className="grow"><h1>{p.name}</h1><div className="phead__meta"><span>{p.age} years · Female</span><span>{p.place}</span><span>ABHA {p.abhaId}</span><span>Doctor: {p.doctor}</span></div></div>
+          <div className="grow"><h1>{p.name}</h1><div className="phead__meta"><span>{p.age} years · {p.sex === 'F' ? 'Female' : 'Male'}</span><span>{p.place}</span><span>ABHA {p.abhaId}</span><span>Doctor: {p.doctor}</span></div><RiskFlags r={r} /></div>
           <a className="btn btn--secondary" href={originalPdfUrl(pid)} target="_blank" rel="noopener noreferrer"><ExternalLink size={15} />View original document</a>
           <div className="phead__last"><span className="eyebrow">Last visit</span><b>{fmtDate(p.lastVisitDate)}</b></div>
         </div></Card>
@@ -100,8 +103,13 @@ export default function NursePatient() {
         </div>
         <ReviewCard patientId={pid} onUpload={() => setUploading(true)} />
         <SummaryBlock patientId={pid} />
-        <CounsellingCard patientId={pid} role="nurse" />
-        <CorrectionCard patientId={pid} role="nurse" />
+        <Fold title="Counselling, education and ASHA/USHA referral" hint="What was explained, and follow-up at home">
+          <CounsellingCard patientId={pid} role="nurse" />
+          <AshaCard patientId={pid} role="nurse" />
+        </Fold>
+        <Fold title="Correction requests" hint="Changes a patient has asked for">
+          <CorrectionCard patientId={pid} role="nurse" />
+        </Fold>
       </main>
       {uploading && <UploadDialog patientId={pid} onClose={() => setUploading(false)} />}
       {recording && <RecordDialog patientId={pid} onClose={() => setRecording(false)} />}

@@ -7,11 +7,13 @@ import type { RegisteredPatient } from '@/domain/api';
 import { Button, Card, CardHead, SkeletonCard, cx } from '@/ui/primitives';
 import { Modal } from '@/ui/primitives';
 import { useUi } from '@/ui/store';
-import { LoadError, TopBar } from './Chrome';
+import { LoadError, TopBar, PatientStick } from './Chrome';
+import { ObsRiskFlags, obsPeriod } from './Homa';
 import { ObsOverview, ObsTable, fmtWhen, type Obs } from './ReceivedDashboard';
 import { RecordDialog } from './RecordResult';
 import { ReviewCard } from './Review';
 import { CorrectionCard, CounsellingCard, SummaryBlock } from './Care';
+import { Fold } from '@/ui/Fold';
 import { UploadDialog } from './UploadDocument';
 
 /** A patient registered at this hospital: no follow-up slips yet, so the page is built only from confirmed values. */
@@ -39,6 +41,7 @@ export default function RegisteredPatientPage() {
     <div className="screen">
       <TopBar right={<Button variant="secondary" size="sm" onClick={close} icon={<ArrowLeft size={14} />}>Exit to dashboard</Button>} />
       <main className="wrap wrap--wide">
+        <PatientStick name={p.name} abha={p.abha} />
         <Card accent="ink" className="phead">
           <div className="phead__row">
             <span className="avatar">{initials}</span>
@@ -49,7 +52,9 @@ export default function RegisteredPatientPage() {
                 {p.place && <span translate="no">{p.place}</span>}
                 {p.phone && <span translate="no">+91 {p.phone}</span>}
                 <span translate="no">ABHA {p.abha}</span>
+                {obsPeriod(obs) && <span>Diabetes ({obsPeriod(obs)})</span>}
               </div>
+              <ObsRiskFlags obs={obs} />
               <div className="phead__cx">
                 <span className="chip chip--sage"><BadgeCheck size={12} /> Identity verified by mobile code · {fmtWhen(p.verifiedAt)}</span>
                 <span className={cx('chip', p.abhaSource === 'created' ? 'chip--dashed' : 'chip--outline')}>{p.abhaSource === 'created' ? 'Sample ABHA made by the sandbox' : 'ABHA matched to its profile'}</span>
@@ -72,9 +77,13 @@ export default function RegisteredPatientPage() {
         <ObsOverview obs={obs} />
         <ReviewCard patientId={id} onUpload={() => setUploading(true)} />
         <ObsTable obs={obs} />
-        <CounsellingCard patientId={id} role={role} />
-        <CorrectionCard patientId={id} role={role} />
-        <RightsCard p={p} onChanged={profile.refetch} onErased={close} />
+        <Fold title="Counselling, education and corrections" hint="What was explained, and changes the patient has asked for">
+          <CounsellingCard patientId={id} role={role} />
+          <CorrectionCard patientId={id} role={role} />
+        </Fold>
+        <Fold title="The patient’s rights" hint="Copy of their data, sharing consent, erasure">
+          <RightsCard p={p} onChanged={profile.refetch} onErased={close} />
+        </Fold>
         <p className="hint" style={{ textAlign: 'center', margin: '8px 0 24px' }}>Prototype with synthetic data. Only values a person has recorded or confirmed appear above.</p>
       </main>
       {uploading && <UploadDialog patientId={id} onClose={() => setUploading(false)} />}

@@ -30,8 +30,8 @@ const keep = (o, names) => Object.fromEntries(names.map(n => [n, o[n]]));
 const pkg = {
   name: 'nirantar-frontend', private: true, version: '0.0.0', type: 'module',
   scripts: { dev: 'vite', build: 'tsc --noEmit -p . && vite build', typecheck: 'tsc --noEmit -p .', test: 'vitest run', pack: 'node tools/pack.mjs' },
-  dependencies: keep(full.dependencies, ['react', 'react-dom', 'zustand', 'lucide-react', 'qrcode', '@fontsource/manrope', '@fontsource/public-sans', '@fontsource/ibm-plex-sans-devanagari']),
-  devDependencies: { ...keep(full.devDependencies, ['@types/node', '@types/qrcode', '@types/react', '@types/react-dom', '@vitejs/plugin-react', 'typescript', 'vite', 'vitest']), fflate: full.dependencies.fflate },
+  dependencies: keep(full.dependencies, ['react', 'react-dom', 'zustand', 'lucide-react', '@fontsource/public-sans', '@fontsource/ibm-plex-sans-devanagari']),
+  devDependencies: { ...keep(full.devDependencies, ['@types/node', '@types/react', '@types/react-dom', '@vitejs/plugin-react', 'typescript', 'vite', 'vitest']), fflate: full.dependencies.fflate },
 };
 writeFileSync(join(stage, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
 writeFileSync(join(stage, '.gitignore'), 'node_modules\ndist\n*.zip\n.env.local\n');

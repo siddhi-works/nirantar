@@ -11,13 +11,15 @@ import { TrendChart } from '@/ui/charts/TrendChart';
 import { MedLane } from '@/ui/charts/Mini';
 import { domainOf } from '@/ui/charts/scale';
 import { useUi } from '@/ui/store';
-import { LoadError, TopBar } from './Chrome';
+import { LoadError, TopBar, PatientStick } from './Chrome';
 import { UploadDialog } from './UploadDocument';
 import { ChecksList, buildChecks } from './Checks';
 import { RecordDialog } from './RecordResult';
 import { ReviewCard } from './Review';
-import { CorrectionCard, CounsellingCard, SummaryBlock } from './Care';
-import { complications, monthsLabel, onRecordSince, vitalsNote } from '@/domain/profile';
+import { AshaCard, CorrectionCard, CounsellingCard, SummaryBlock } from './Care';
+import { complications, onRecordSince, roughPeriod, vitalsNote } from '@/domain/profile';
+import { HomaCard, RiskFlags } from './Homa';
+import { Fold } from '@/ui/Fold';
 
 const dedupe = <T extends { id: string }>(xs: T[]) => xs.filter((x, i) => xs.findIndex(y => y.id === x.id) === i);
 
@@ -46,6 +48,7 @@ export default function DoctorPatient() {
       <TopBar right={<Button variant="secondary" size="sm" onClick={close} icon={<ArrowLeft size={14} />}>Exit to dashboard</Button>} />
       <main className="wrap wrap--wide">
         {/* patient header */}
+        <PatientStick name={p.name} abha={p.abhaId} />
         <Card accent="ink" className="phead">
           <div className="phead__row">
             <span className="avatar">{p.initials}</span>
@@ -54,18 +57,51 @@ export default function DoctorPatient() {
               <div className="phead__meta"><span>{p.age} years · {p.sex === 'F' ? 'Female' : 'Male'}</span><span>{p.weightKg} kg</span><span>{p.place}</span><span>ABHA {p.abhaId}</span><span>{r.diagnoses.at(-1)!.text}</span></div>
               <div className="phead__cx" aria-label="Complications on record">
                 <span className="eyebrow">Complications</span>
-                {cx2.length ? cx2.map(c => <span key={c.label} className="chip chip--outline">{c.label} <small>(first on record {fmtDate(c.since)} · {monthsLabel(c.months)})</small></span>) : <span className="muted">None written on any slip or report</span>}
-                {since && <span className="muted">(diabetes on record since {fmtDate(since.since)} · {monthsLabel(since.months)})</span>}
+                {cx2.length ? cx2.map(c => <span key={c.label} className="chip chip--outline">{c.label} <small>(about {roughPeriod(c.months)})</small></span>) : <span className="muted">None written on any slip or report</span>}
+                {since && <span className="muted">Diabetes (about {roughPeriod(since.months)} on record)</span>}
               </div>
+              <RiskFlags r={r} />
             </div>
             <div className="row" style={{ gap: 8 }}><a className="btn btn--secondary" href={originalPdfUrl(pid)} target="_blank" rel="noopener noreferrer"><ExternalLink size={15} />View original document</a><Button onClick={() => setUploading(true)} icon={<FileUp size={15} />}>Upload document</Button></div>
             <div className="phead__last"><span className="eyebrow">Last visit</span><b>{fmtDate(p.lastVisitDate)}</b><small>{r.visits.length} visits on record</small></div>
           </div>
         </Card>
 
+        <div className="dash">
+          <div className="dash__main stack" style={{ gap: 18 }}>
         <SummaryBlock patientId={pid} />
-
-        {/* evidence */}
+        <Card accent="ink">
+          <CardHead title="Trends" icon={<Droplets size={16} />} right={<span className="hint">Click a point to see where it came from. <span aria-hidden="true">◆</span> marks a value recorded or uploaded here.</span>} />
+          <div className="trio">
+            {(['hba1c', 'fbs', 'ppbs'] as const).map(c => (
+              <div key={c}>
+                <div className="trio__h"><b>{T[c].label}</b><span className="muted">{T[c].unit} · target {T[c].target?.label}</span></div>
+                <TrendChart series={T[c]} domain={domain} visitDates={visitDates} height={170} onSelect={pick(T[c])} />
+              </div>
+            ))}
+          </div>
+        </Card>
+        <HomaCard r={r} onRecord={() => setRecording(true)} />
+          </div>
+          <div className="dash__rail">
+          <Card accent="sage">
+            <CardHead title="Medicines" icon={<Pill size={16} />} />
+            <div className="card__body">
+              <MedLane meds={r.medications} domain={domain} visitDates={visitDates}
+                onSelect={(m: MedicationMention) => openSource({ kind: 'citation', citation: m.citation, patientId: pid, title: `Visit ${m.visit}` })} />
+              <ul className="meds">
+                {r.medications.map(m => <li key={m.drug}><b>{m.drug}</b> {m.strength} · {m.regimen} · {m.route}</li>)}
+              </ul>
+              
+            </div>
+          </Card>
+          <Card accent="terracotta">
+            <CardHead title="Checks — on record and not on record" icon={<ClipboardList size={16} />} right={<Button size="sm" variant="secondary" onClick={() => setRecording(true)} icon={<ClipboardPlus size={14} />}>Record a result</Button>} />
+            <ChecksList sections={buildChecks(r)} />
+          </Card>
+          </div>
+        </div>
+        <ReviewCard patientId={pid} onUpload={() => setUploading(true)} />
         <div className="cols cols--even">
           <Card accent="cerulean">
             <CardHead title="Evidence behind the summary" />
@@ -88,48 +124,17 @@ export default function DoctorPatient() {
             {vit && <div className="vit"><CheckCircle2 size={15} /><span><b>Vitals recorded {fmtDate(vit.date)} by {vit.by}:</b> {[vit.bp && `BP ${vit.bp}`, vit.weight, vit.height, vit.pulse && `pulse ${vit.pulse}`, vit.bmi && `BMI ${vit.bmi}`].filter(Boolean).join(' · ')}</span></div>}
           </Card>
         </div>
-
-        {/* trends */}
-        <Card accent="ink">
-          <CardHead title="Trends" icon={<Droplets size={16} />} right={<span className="hint">Click a point to see where it came from. <span aria-hidden="true">◆</span> marks a value recorded or uploaded here.</span>} />
-          <div className="trio">
-            {(['hba1c', 'fbs', 'ppbs'] as const).map(c => (
-              <div key={c}>
-                <div className="trio__h"><b>{T[c].label}</b><span className="muted">{T[c].unit} · target {T[c].target?.label}</span></div>
-                <TrendChart series={T[c]} domain={domain} visitDates={visitDates} height={170} onSelect={pick(T[c])} />
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <div className="cols cols--even">
-          {/* medicines */}
-          <Card accent="sage">
-            <CardHead title="Medicines" icon={<Pill size={16} />} />
-            <div className="card__body">
-              <MedLane meds={r.medications} domain={domain} visitDates={visitDates}
-                onSelect={(m: MedicationMention) => openSource({ kind: 'citation', citation: m.citation, patientId: pid, title: `Visit ${m.visit}` })} />
-              <ul className="meds">
-                {r.medications.map(m => <li key={m.drug}><b>{m.drug}</b> {m.strength} · {m.regimen} · {m.route}</li>)}
-              </ul>
-              
-            </div>
-          </Card>
-
-          {/* checks */}
-          <Card accent="terracotta">
-            <CardHead title="Checks — on record and not on record" icon={<ClipboardList size={16} />} right={<Button size="sm" variant="secondary" onClick={() => setRecording(true)} icon={<ClipboardPlus size={14} />}>Record a result</Button>} />
-            <ChecksList sections={buildChecks(r)} />
-          </Card>
-        </div>
-        <ReviewCard patientId={pid} onUpload={() => setUploading(true)} />
+        <Fold title="Advice, education and ASHA/USHA referral" hint="Counselling given, topics explained, follow-up at home">
         <CounsellingCard patientId={pid} role="doctor" />
+        <AshaCard patientId={pid} role="doctor" />
+        </Fold>
+        <Fold title="Correction requests" hint="Changes a patient has asked for">
         <CorrectionCard patientId={pid} role="doctor" />
-
-        {/* visit history */}
+        </Fold>
+        <Fold title={`Visit history (${r.visits.length} visits)`} hint="Every slip, with its source">
         <Card accent="cerulean">
           <CardHead title="Visit history" icon={<FileText size={16} />} />
-          <div style={{ overflowX: 'auto', position: 'relative' }}>
+          <div style={{ overflowX: 'auto', position: 'relative' }} tabIndex={0} role="region" aria-label="Visit history table, scrollable">
             <table className="table">
               <thead><tr><th>Visit</th><th>Date</th><th>FBS</th><th>PPBS</th><th>HbA1c</th><th>Complaint and advice</th><th><span className="sr-only">Source</span></th></tr></thead>
               <tbody>
@@ -138,6 +143,7 @@ export default function DoctorPatient() {
             </table>
           </div>
         </Card>
+        </Fold>
         <p className="hint" style={{ textAlign: 'center', margin: '8px 0 24px' }}>Prototype with synthetic data. Generated summaries are drafts for the clinician to review.</p>
       </main>
       {uploading && <UploadDialog patientId={pid} onClose={() => setUploading(false)} />}

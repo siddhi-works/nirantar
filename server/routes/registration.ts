@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { createHash, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { and, count, desc, eq, gt, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import { accessLog, consentEvents, documents, editRequests, educationLog, fileBlobs, factVerifications, observations, observationVersions, opdVisits, patientAdvice, patients, registeredPatients, registrationDrafts, sessions, simCareContexts, users } from '../db/schema';
+import { accessLog, ashaReferrals, consentEvents, documents, editRequests, educationLog, fileBlobs, factVerifications, observations, observationVersions, opdVisits, patientAdvice, patients, registeredPatients, registrationDrafts, sessions, simCareContexts, users } from '../db/schema';
 import { scope } from '../seed';
 import { OBS_BY_CODE } from '../../src/domain/observations';
 import { countRequests, record } from '../auth/ratelimit';
@@ -266,7 +266,7 @@ export function registrationRoutes({ db, requireUser, open }: AppCtx) {
     for (const t of [documents, observations, observationVersions, factVerifications, simCareContexts]) await db.delete(t).where(eq(t.patientId, key));
     await db.delete(consentEvents).where(eq(consentEvents.patientId, p.id));
     // Everything else held about this person, wherever it lives: the queue, requests, advice, education, and their sign-in.
-    for (const t of [opdVisits, editRequests, educationLog, patientAdvice]) await db.delete(t).where(and(eq(t.workspace, p.workspace), eq(t.patientId, p.id)));
+    for (const t of [opdVisits, editRequests, educationLog, patientAdvice, ashaReferrals]) await db.delete(t).where(and(eq(t.workspace, p.workspace), eq(t.patientId, p.id)));
     const login = await db.select({ id: users.id }).from(users).where(eq(users.patientId, p.id));
     if (login.length) { await db.delete(sessions).where(inArray(sessions.userId, login.map(l => l.id))); await db.delete(users).where(inArray(users.id, login.map(l => l.id))); }
     await db.delete(registeredPatients).where(eq(registeredPatients.id, p.id));

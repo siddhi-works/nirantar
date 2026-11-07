@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GraduationCap, HeartHandshake, MessageSquareWarning, Sparkles } from 'lucide-react';
+import { GraduationCap, HandHeart, HeartHandshake, MessageSquareWarning, Sparkles } from 'lucide-react';
 import { api } from '@/api';
 import { useApi } from '@/api/hooks';
 import { fmtDate } from '@/domain/format';
@@ -7,6 +7,8 @@ import { Button, Card, CardHead, cx } from '@/ui/primitives';
 import { useUi } from '@/ui/store';
 import { ReadAloud } from '@/i18n/controls';
 import type { EditRequest } from '@/domain/api';
+import { ASHA_REASONS } from '@/domain/asha';
+import { ScopeNote } from '@/ui/ScopeNote';
 
 /** A short summary in sentences, written from the record and from nothing else. */
 export function SummaryBlock({ patientId }: { patientId: string }) {
@@ -130,6 +132,46 @@ export function CorrectionCard({ patientId, role, choices }: { patientId: string
           </ul>
         )}
         {role !== 'patient' && list.some(x => x.status === 'pending') && <p className="hint">If you accept, make the change yourself with “Correct value” on the original slip. The original stays on record. Then record your decision here so the patient can read it.</p>}
+      </div>
+    </Card>
+  );
+}
+
+const WORKER = { asha: 'ASHA worker', usha: 'USHA worker' } as const;
+
+/** Send the patient to the community health worker for follow-up at home. The patient sees the same list. */
+export function AshaCard({ patientId, role }: { patientId: string; role: 'doctor' | 'nurse' | 'patient' }) {
+  const toast = useUi(s => s.toast);
+  const { data, refetch } = useApi(() => api.listAsha(patientId), [patientId]);
+  const [worker, setWorker] = useState<'asha' | 'usha'>('asha');
+  const [reason, setReason] = useState<string>(ASHA_REASONS[0].id);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault(); setBusy(true);
+    try { await api.referToAsha(patientId, { worker, reason, note: note.trim() || undefined }); setNote(''); toast(`Sent to the ${WORKER[worker]}`); refetch(); }
+    catch (err) { toast(err instanceof Error ? err.message : 'Could not send.', 'error'); } finally { setBusy(false); }
+  };
+  const label = (id: string) => ASHA_REASONS.find(x => x.id === id)?.label ?? id;
+  return (
+    <Card accent="sage">
+      <CardHead title="ASHA / USHA worker follow-up" icon={<HandHeart size={16} />} />
+      <div className="card__body">
+        {role !== 'patient' && (
+          <form className="stack" style={{ gap: 10 }} onSubmit={send}>
+            <p className="hint">Send the patient to the community health worker (ASHA in villages, USHA in cities) for follow-up at home.</p>
+            <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+              <div className="field"><label htmlFor="aw">Worker</label><select id="aw" className="select" value={worker} onChange={e => setWorker(e.target.value as 'asha' | 'usha')}><option value="asha">ASHA worker (village)</option><option value="usha">USHA worker (city)</option></select></div>
+              <div className="field grow"><label htmlFor="ar">Reason</label><select id="ar" className="select" value={reason} onChange={e => setReason(e.target.value)}>{ASHA_REASONS.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}</select></div>
+            </div>
+            <div className="field"><label htmlFor="an">A short note (optional)</label><input id="an" className="input" maxLength={200} value={note} onChange={e => setNote(e.target.value)} /></div>
+            <div><Button disabled={busy}>Send to the worker</Button></div>
+          </form>
+        )}
+        {(data ?? []).length === 0 ? <p className="hint" style={{ marginTop: 8 }}>{role === 'patient' ? 'No follow-up has been arranged yet.' : 'Nothing sent yet.'}</p> : (
+          <ul className="xlist" style={{ marginTop: 10 }}>{(data ?? []).map(x => <li key={x.id}><span className="grow"><b>{WORKER[x.worker]}</b>: {label(x.reason)}<small>{x.note ? `${x.note} · ` : ''}by {x.by} · {fmtDate(x.at)}</small></span></li>)}</ul>
+        )}
+        <ScopeNote kind="future">The worker is not notified by any system yet. This records the referral so it can be handed over, and it will connect to the ASHA app later.</ScopeNote>
       </div>
     </Card>
   );

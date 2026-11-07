@@ -30,13 +30,6 @@ export function vitalsNote(r: Recall): VitalsNote | null {
   };
 }
 
-export function monthsLabel(months: number): string {
-  if (months < 1) return 'under a month';
-  if (months < 12) return `${months} mo`;
-  const y = Math.floor(months / 12); const m = months % 12;
-  return m ? `${y} yr ${m} mo` : `${y} yr`;
-}
-
 const monthsBetween = (a: string, b: string) => {
   const [ya, ma] = a.split('-').map(Number); const [yb, mb] = b.split('-').map(Number);
   return Math.max(0, (yb - ya) * 12 + (mb - ma));
@@ -67,3 +60,22 @@ export const onRecordSince = (r: Recall) => {
   const first = r.changes[0]?.date;
   return first ? { since: first, months: monthsBetween(first, r.patient.asOf) } : null;
 };
+
+/** A rough period for how long a condition has been on record: to the nearest half year, never an exact date. */
+export function roughPeriod(months: number): string {
+  if (months < 3) return 'under 3 months';
+  if (months < 9) return '6 months';
+  const half = Math.round(months / 6) / 2; // years in halves
+  const whole = Math.floor(half);
+  const text = half % 1 ? `${whole === 0 ? '' : whole + ' '}½` : String(half);
+  return `${text.trim()} ${half === 1 ? 'year' : 'years'}`;
+}
+
+/** The history flags that must stand out: written in red whenever they are on record. */
+export function riskFlags(r: Recall): { code: string; label: string }[] {
+  const out: { code: string; label: string }[] = [];
+  if (latestRecorded(r, 'hiv')?.value === 'positive') out.push({ code: 'hiv', label: 'HIV positive' });
+  if (latestRecorded(r, 'hcv')?.value === 'positive') out.push({ code: 'hcv', label: 'HCV positive' });
+  if (latestRecorded(r, 'prior-mi')?.value === 'yes') out.push({ code: 'prior-mi', label: 'Past heart attack (MI)' });
+  return out;
+}

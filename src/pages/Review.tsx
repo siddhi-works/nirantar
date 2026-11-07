@@ -128,7 +128,7 @@ export function ReviewCard({ patientId, onUpload }: { patientId: string; onUploa
   const values = obs.data ?? [];
   const total = list.reduce((n, d) => n + d.waiting, 0);
   return (
-    <Card accent="sage">
+    <Card accent="sage" id="review">
       <CardHead title={role === 'patient' ? t('Your uploaded documents') : 'Uploaded documents and values to review'} icon={<FileUp size={16} />}
         right={<div className="row" style={{ gap: 8 }}>{total > 0 && <span className="chip chip--cerulean">{total} to review</span>}<Button size="sm" variant="secondary" onClick={onUpload} icon={<FileUp size={14} />}>{t('Upload document')}</Button></div>} />
       <div className="card__body">

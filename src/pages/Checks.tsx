@@ -6,7 +6,7 @@ import { latestRecorded, shownValue } from '@/domain/profile';
 import { AbsenceChip, SourceChip, cx } from '@/ui/primitives';
 import { Tx, useT } from '@/i18n';
 
-interface Row { label: string; present: boolean; value?: string; sub?: string; node?: React.ReactNode }
+interface Row { label: string; present: boolean; value?: string; sub?: string; node?: React.ReactNode; alert?: boolean }
 export interface Section { title: string; rows: Row[] }
 
 /** What is on record and what is not, with the report each value came from. No advice. */
@@ -33,6 +33,16 @@ export function buildChecks(r: Recall): Section[] {
     label: c === 'hba1c' ? 'HbA1c' : c === 'fbs' ? 'Fasting glucose (FBS)' : 'Post-meal glucose (PPBS)', present: true, value: val(c),
     sub: `Visit ${T[c].latest!.visit}, ${fmtDate(T[c].latest!.date)}`, node: <SourceChip citation={T[c].latest!.citation!} patientId={pid} />,
   }));
+
+  sugar.push(recorded('insulin', 'Fasting insulin (for HOMA-IR)', 'Not recorded, so HOMA-IR cannot be calculated'));
+
+  /* history and risks: written in red when present */
+  const flag = (code: string, label: string): Row => {
+    const f = latestRecorded(r, code);
+    if (!f) return absent(label, 'Not recorded yet');
+    return { ...fromFact(label, f), alert: code === 'prior-mi' ? f.value === 'yes' : f.value === 'positive' };
+  };
+  const history: Row[] = [flag('hiv', 'HIV status'), flag('hcv', 'HCV (hepatitis C) status'), flag('prior-mi', 'Past heart attack (MI)')];
 
   /* examination logs */
   const exam: Row[] = [
@@ -71,6 +81,7 @@ export function buildChecks(r: Recall): Section[] {
 
   const sections: Section[] = [
     { title: 'Blood sugar', rows: sugar },
+    { title: 'History and risks', rows: history },
     { title: 'Examination logs', rows: exam },
     { title: 'Comorbidity logs', rows: como },
   ];
@@ -88,7 +99,7 @@ export function ChecksList({ sections, plain }: { sections: Section[]; plain?: b
           <h3 className="chk__group">{t(s.title)}</h3>
           <ul className="chk">
             {s.rows.map(c => (
-              <li key={c.label} className={cx(!c.present && 'is-miss')}>
+              <li key={c.label} className={cx(!c.present && 'is-miss', c.alert && 'is-alert')}>
                 <span className="chk__i">{c.present ? <CircleCheck size={18} /> : <CircleDashed size={18} />}</span>
                 <span className="grow"><b>{t(c.label)}</b>{c.value && <span className="chk__v num"> {c.value}</span>}<small>{plain && c.sub ? <Tx text={c.sub} /> : c.sub}</small></span>
                 <span className={cx('chip', c.present ? 'chip--sage' : 'chip--dashed')}>{c.present ? t('On record') : t('Not on record')}</span>

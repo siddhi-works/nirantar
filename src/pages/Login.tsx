@@ -68,13 +68,16 @@ export default function Login() {
     <div className="login">
       <aside className="login__brand">
         <div className="login__logo"><Logo size={40} /><span>Nirantar</span></div>
-        <h1>{t('Care that doesn’t lose the thread between visits.')}</h1>
-        <p>{t('One continuous, evidence-linked diabetes record for the clinic and the patient.')}</p>
+        <h1>{t('Two minutes in the OPD. The whole diabetes story in one glance.')}</h1>
+        <p>{t('Continuity of diabetes care on centralised national ABDM records, the way CBS, UPI, Aadhaar and PAN work for banking and identity.')}</p>
+        <p className="login__stat">{t('BMJ Open 2017: an OPD consultation takes about 2 minutes in India, against about 20 minutes or more in the US and Europe.')}</p>
         <ul className="login__facts">
-          <li><ShieldCheck size={18} />{t('Scanned prescriptions and reports are read and joined into one record')}</li>
-          <li><ShieldCheck size={18} />{t('Every value traces back to the slip it came from')}</li>
-          <li><ShieldCheck size={18} />{t('Missing tests are shown, never left blank')}</li>
-          <li><ShieldCheck size={18} />{t('Other hospitals see a record only with the patient’s consent')}</li>
+          <li><ShieldCheck size={18} />{t('Helps Indian doctors work effectively within the 2-minute OPD window')}</li>
+          <li><ShieldCheck size={18} />{t('Centralised logins and records on the National ABDM stack')}</li>
+          <li><ShieldCheck size={18} />{t('Digitises past prescriptions by scanning, and new ones by writing on a blank canvas')}</li>
+          <li><ShieldCheck size={18} />{t('AI summary of EMR trends, with changes in doses plotted against the EMR values')}</li>
+          <li><ShieldCheck size={18} />{t('Reduces defensive medication and wrong diagnosis')}</li>
+          <li><ShieldCheck size={18} />{t('Increases doctor-patient interaction and counselling')}</li>
         </ul>
         <img className="login__art" src="/img/clinic.jpg" alt="" width="1200" height="900" />
         <small>Prototype · all names, IDs and numbers are synthetic dummy data</small>
@@ -83,12 +86,13 @@ export default function Login() {
       <main className="login__panel">
         <form className="login__card" onSubmit={submit}>
           <div className="spread"><h1 className="login__h">{t('Log in')}</h1><LangToggle /></div>
-          <p className="muted">{t('Log in to continue. Choose how you are using Nirantar.')}</p>
+          <p className="muted">{t('Log in to open your records.')}</p>
           <div className="login__tabs" role="radiogroup" aria-label={t('I am')}>
-            <button type="button" role="radio" aria-checked={who === 'patient'} className={who === 'patient' ? 'is-on' : ''} onClick={() => { setWho('patient'); setErr(''); }}><UserRound size={16} />{t('Patient')}</button>
-            <button type="button" role="radio" aria-checked={who === 'staff'} className={who === 'staff' ? 'is-on' : ''} onClick={() => { setWho('staff'); setErr(''); }}><Stethoscope size={16} />{t('Medical practitioner')}</button>
+            <button type="button" role="radio" aria-checked={who === 'patient'} className={who === 'patient' ? 'is-on' : ''} onClick={() => { setWho('patient'); setErr(''); }}><UserRound size={16} />{t('Patient (HIU)')}</button>
+            <button type="button" role="radio" aria-checked={who === 'staff'} className={who === 'staff' ? 'is-on' : ''} onClick={() => { setWho('staff'); setErr(''); }}><Stethoscope size={16} />{t('Healthcare worker (HIP)')}</button>
           </div>
 
+          <p className="hint" id="who-gloss">{who === 'patient' ? t('HIU: a person or hospital that asks for health records. A patient sees and shares their own record.') : t('HIP: a hospital or clinic that holds and provides health records. Doctors and nurses sign in here.')}</p>
           {who === 'staff' ? (
             <>
               <div className="field"><label htmlFor="who">{t('Choose your name')}</label>
@@ -111,7 +115,7 @@ export default function Login() {
           )}
           <button className="btn login__go" disabled={busy || (who === 'patient' && abha.replace(/\D/g, '').length !== 14)}>{busy ? t('Signing in…') : <>{t('Log in')} <ArrowRight size={16} /></>}</button>
           {err && <div className="error-text" role="alert">{err}</div>}
-          {who === 'staff' && <ScopeNote kind="future">{t('Staff sign-in with a one-time code and real registry (HPR) checks needs an SMS service. Today the sample IDs sign in directly.')}</ScopeNote>}
+          {who === 'staff' && <ScopeNote kind="future">{t('Coming later: sign-in with a one-time code, checked against the national doctors’ registry. For now, choose a sample name to continue.')}</ScopeNote>}
         </form>
 
         <details className="tour card">
@@ -120,7 +124,7 @@ export default function Login() {
           <ol>
             <li>Sign in as <b>Dr. Swati Mani</b>, choose “Scan a report”, pick a patient and upload a slip, or use the sample prescription. Confirm, correct or reject what was read.</li>
             <li>Click a point on a chart, or a source chip, to see the slip a value came from. Choose “Correct value” to see that the original stays on record.</li>
-            <li>Sign in as <b>Dr. Pratayaksha</b> (Patna Medical College & Hospital, Patna). The patient list shows patients held elsewhere. Choose “Request access”.</li>
+            <li>Sign in as <b>Dr. Pratayaksha</b> (Patna Medical College & Hospital, Patna). The patient list shows patients held elsewhere. Choose “Ask for access”.</li>
             <li>Sign in as that patient with their ABHA number and allow the request. You can narrow what is shared and for how long.</li>
             <li>Sign in as Dr. Pratayaksha again and open the record. The copy arrives encrypted and read-only, with the source of every number.</li>
           </ol>

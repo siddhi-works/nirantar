@@ -109,7 +109,7 @@ export function TrendChart({ series, domain, height = 190, hoverVisit, onHover, 
               aria-label={`${series.label} ${fmt(p.value!)} ${series.unit} on ${fmtDate(p.date)}, visit ${p.visit}. Open source.`}
               onMouseEnter={() => { setTip(p); onHover?.(p.visit); }} onFocus={() => { setTip(p); onHover?.(p.visit); }} onBlur={() => setTip(null)}
               onClick={() => onSelect?.(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(p); } }}>
-              <circle cx={x(p.date)} cy={y(p.value!)} r={16} fill="transparent" />
+              <circle cx={x(p.date)} cy={y(p.value!)} r={22} fill="transparent" />
               <circle cx={x(p.date)} cy={y(p.value!)} r={active ? 7.5 : 5.5} fill="#fff" stroke={bandColor(p.band)} strokeWidth={2.4} />
               {verified && <circle cx={x(p.date)} cy={y(p.value!)} r={2.2} fill="var(--sage-ink)" />}
               <text x={x(p.date)} y={y(p.value!) - 12} textAnchor="middle" className="tchart__val" style={{ fill: bandColor(p.band) }}>{fmt(p.value!)}</text>
@@ -124,7 +124,7 @@ export function TrendChart({ series, domain, height = 190, hoverVisit, onHover, 
               aria-label={`${series.label} ${fmt(p.value!)} ${series.unit}, recorded ${fmtDate(p.date)}${p.citation?.source ? (p.citation.source.kind === 'upload' ? ', from an uploaded document' : ', entered by staff') : ''}. Open source.`}
               onMouseEnter={() => setTip(p)} onFocus={() => setTip(p)} onBlur={() => setTip(null)}
               onClick={() => onSelect?.(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect?.(p); } }}>
-              <circle cx={cx} cy={cy} r={16} fill="transparent" />
+              <circle cx={cx} cy={cy} r={22} fill="transparent" />
               <rect x={cx - 5.5} y={cy - 5.5} width={11} height={11} transform={`rotate(45 ${cx} ${cy})`} fill="var(--cerulean-tint)" stroke={bandColor(p.band)} strokeWidth={2.2} />
               <text x={cx} y={cy - 13} textAnchor="middle" className="tchart__val" style={{ fill: bandColor(p.band) }}>{fmt(p.value!)}</text>
             </g>
@@ -132,7 +132,7 @@ export function TrendChart({ series, domain, height = 190, hoverVisit, onHover, 
         })}
       </svg>
       {tip && tip.value !== null && (
-        <div className="tchart__tip" style={{ left: Math.min(Math.max(x(tip.date), 90), W - 100), top: Math.max(0, y(tip.value) - 92) }}>
+        <div className={tip.citation ? 'tchart__tip tchart__tip--open' : 'tchart__tip'} role={tip.citation ? 'button' : undefined} onClick={() => tip.citation && onSelect?.(tip)} style={{ left: Math.min(Math.max(x(tip.date), 90), W - 100), top: Math.max(0, y(tip.value) - 92) }}>
           <b>{series.label} {fmt(tip.value)} {series.unit}</b>
           <span>{tip.visit ? `Visit ${tip.visit}` : tip.citation?.source?.kind === 'upload' ? 'From an uploaded document' : 'Recorded by staff'} · {fmtDate(tip.date)}</span>
           {tip.deltaPrev !== null && <span>{signed(tip.deltaPrev, dec)} vs previous reading</span>}

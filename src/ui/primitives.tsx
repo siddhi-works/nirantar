@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
-import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, CircleDashed, Equal, FileSearch, FileText, PencilLine, Sparkles } from 'lucide-react';
-import type { AbsenceEvidence, ChangeItem, Citation, GapStatus, OrganState, Severity, VerificationState } from '@/domain/types';
-import { SEVERITY_LABEL } from '@/domain/forms';
+import { ArrowDown, ArrowUp, CheckCircle2, Equal, FileSearch, FileText, PencilLine } from 'lucide-react';
+import type { AbsenceEvidence, ChangeItem, Citation, VerificationState } from '@/domain/types';
 import { useUi } from './store';
 
 export const cx = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(' ');
@@ -23,39 +22,10 @@ export function CardHead({ title, icon, right }: { title: ReactNode; icon?: Reac
 }
 
 /* ───────── Chips ───────── */
-export function SeverityChip({ severity, lg }: { severity: Severity; lg?: boolean }) {
-  return <span className={cx('chip', `chip--${severity}`, lg && 'chip--lg')}>{SEVERITY_LABEL[severity]}</span>;
-}
-
-const GAP_STATUS: Record<GapStatus, { label: string; cls: string }> = {
-  open: { label: 'No action yet', cls: 'chip--moderate' },
-  tasked: { label: 'Task open', cls: 'chip--cerulean' },
-  in_progress: { label: 'Action recorded', cls: 'chip--cerulean' },
-  evidence: { label: 'Evidence attached', cls: 'chip--sage' },
-  closed: { label: 'Closed with evidence', cls: 'chip--sage' },
-};
-export function GapStatusChip({ status }: { status: GapStatus }) {
-  const s = GAP_STATUS[status];
-  return <span className={cx('chip', s.cls)}>{status === 'closed' && <CheckCircle2 size={12} />}{s.label}</span>;
-}
-
-/** PRD three-state model — never merged; every badge carries a text label, not colour alone. */
-export function StateBadge({ state, label, lg }: { state: OrganState | 'clear'; label?: string; lg?: boolean }) {
-  if (state === 'confirmed') return <span className={cx('chip chip--ink', lg && 'chip--lg')}><CheckCircle2 size={12} />{label ?? 'Confirmed condition'}</span>;
-  if (state === 'at-risk') return <span className={cx('chip chip--risk', lg && 'chip--lg')}><AlertTriangle size={12} />{label ?? 'At risk'}</span>;
-  if (state === 'missing') return <span className={cx('chip chip--dashed', lg && 'chip--lg')}><CircleDashed size={12} />{label ?? 'Missing assessment'}</span>;
-  return <span className={cx('chip chip--sage', lg && 'chip--lg')}><CheckCircle2 size={12} />{label ?? 'No signal'}</span>;
-}
 
 export function VerifyChip({ state, by }: { state: VerificationState; by?: string }) {
   if (state === 'verified' || state === 'corrected') return <span className="chip chip--sage" title={by ? `Confirmed by ${by}` : undefined}><CheckCircle2 size={12} />{state === 'corrected' ? 'Corrected' : 'Verified'}</span>;
   return <span className="chip chip--outline" title="Read from the HIS record; not yet confirmed by a clinician"><PencilLine size={12} />Imported · unverified</span>;
-}
-
-export function DraftChip({ accepted }: { accepted?: boolean }) {
-  return accepted
-    ? <span className="chip chip--sage"><CheckCircle2 size={12} />Accepted by clinician</span>
-    : <span className="chip chip--cerulean"><Sparkles size={12} />Draft · not clinical advice</span>;
 }
 
 /* ───────── Delta ───────── */
@@ -129,18 +99,6 @@ export function AbsenceChip({ absence, patientId, title }: { absence: AbsenceEvi
     <button type="button" className="src src--absent" aria-label={`Searched ${absence.searchedDocIds.length} docs · 0 found: ${title}`}
       onClick={e => { e.stopPropagation(); open({ kind: 'absence', absence, patientId, title }); }}>
       <FileSearch size={11} />Searched {absence.searchedDocIds.length} docs · 0 found
-    </button>
-  );
-}
-
-/** A cited value: dotted underline, click opens the source. */
-export function CiteValue({ citation, patientId, children, title }: { citation?: Citation; patientId: string; children: ReactNode; title?: string }) {
-  const open = useUi(s => s.openSource);
-  if (!citation) return <>{children}</>;
-  return (
-    <button type="button" className="cite" title={`Open source: ${docShort(citation.docId)}`}
-      onClick={e => { e.stopPropagation(); open({ kind: 'citation', citation, patientId, title }); }}>
-      {children}
     </button>
   );
 }

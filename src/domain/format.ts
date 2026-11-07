@@ -18,9 +18,6 @@ export function fmtSlipDate(d: ISODate): string {
   const [y, m, day] = d.split('-');
   return `${day}/${m}/${y}`;
 }
-export function fmtTime(iso: string): string {
-  return iso.length > 10 ? iso.slice(11, 16) : '';
-}
 export function monthsBetween(a: ISODate, b: ISODate): number {
   const [y1, m1, d1] = a.split('-').map(Number);
   const [y2, m2, d2] = b.split('-').map(Number);
@@ -42,9 +39,6 @@ export function round(n: number, decimals: number): number {
   const f = 10 ** decimals;
   return Math.round(n * f) / f;
 }
-export function ordinalVisit(v: number): string {
-  return `visit ${v}`;
-}
 export function joinList(items: string[]): string {
   if (items.length <= 1) return items.join('');
   return `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
@@ -52,7 +46,4 @@ export function joinList(items: string[]): string {
 /** "visit 3" or "visits 3, 4 and 5" */
 export function visitsLabel(vs: number[]): string {
   return vs.length === 1 ? `visit ${vs[0]}` : `visits ${joinList(vs.map(String))}`;
-}
-export function addDaysISO(d: ISODate, n: number): ISODate {
-  return new Date(Date.parse(`${d.slice(0, 10)}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 }

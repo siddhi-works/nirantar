@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Db } from './db/client';
 import { eq, inArray, like, lt } from 'drizzle-orm';
-import { profilePhotos, abdmTransfers, consentEvents, consents, documents, editRequests, educationLog, exchangeKeys, gatewayMessages, hipConsentCopies, opdSettings, opdVisits, patientAdvice, sessions, factVerifications, fileBlobs, observations, observationVersions, patients, receivedRecords, recordAnnotations, registeredPatients, registrationDrafts, simCareContexts, simConsents, simTransfers, users, workspaces } from './db/schema';
+import { ashaReferrals, complaints, profilePhotos, abdmTransfers, consentEvents, consents, documents, editRequests, educationLog, exchangeKeys, gatewayMessages, hipConsentCopies, opdSettings, opdVisits, patientAdvice, sessions, factVerifications, fileBlobs, observations, observationVersions, patients, receivedRecords, recordAnnotations, registeredPatients, registrationDrafts, simCareContexts, simConsents, simTransfers, users, workspaces } from './db/schema';
 import { parseRecord } from './core/parse';
 
 export const FACILITY_HFR = 'IN2900011882';
@@ -89,7 +89,7 @@ export async function removeWorkspace(db: Db, ws: string): Promise<void> {
     const made = (await db.select({ id: users.id }).from(users).where(inArray(users.patientId, regs.map(r => r.id)))).map(u => u.id);
     if (made.length) { await db.delete(sessions).where(inArray(sessions.userId, made)); await db.delete(users).where(inArray(users.id, made)); } // the sign-ins made for them
   }
-  for (const t of [opdVisits, opdSettings, editRequests, educationLog, patientAdvice, gatewayMessages, hipConsentCopies, consentEvents]) await db.delete(t).where(eq(t.workspace, ws));
+  for (const t of [opdVisits, opdSettings, editRequests, educationLog, patientAdvice, ashaReferrals, complaints, gatewayMessages, hipConsentCopies, consentEvents]) await db.delete(t).where(eq(t.workspace, ws));
   await db.delete(registeredPatients).where(eq(registeredPatients.workspace, ws));
   await db.delete(registrationDrafts).where(eq(registrationDrafts.workspace, ws));
   for (const t of [documents, observations, observationVersions, factVerifications, simCareContexts]) await db.delete(t).where(like(t.patientId, mine));

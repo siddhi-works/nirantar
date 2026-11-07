@@ -13,11 +13,6 @@ interface UiState {
   source: SourceTarget | null;
   openSource: (s: SourceTarget) => void;
   closeSource: () => void;
-  loopGapId: string | null;
-  openLoop: (gapId: string) => void;
-  closeLoop: () => void;
-  paletteOpen: boolean;
-  setPalette: (v: boolean) => void;
   toasts: Toast[];
   toast: (msg: string, tone?: 'ok' | 'error') => void;
 }
@@ -37,11 +32,6 @@ export const useUi = create<UiState>((set, get) => ({
   source: null,
   openSource: s => { sourceTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null; set({ source: s }); },
   closeSource: () => { set({ source: null }); const el = sourceTrigger; sourceTrigger = null; if (el?.isConnected) requestAnimationFrame(() => el.focus()); },
-  loopGapId: null,
-  openLoop: gapId => set({ loopGapId: gapId }),
-  closeLoop: () => set({ loopGapId: null }),
-  paletteOpen: false,
-  setPalette: v => set({ paletteOpen: v }),
   toasts: [],
   toast: (msg, tone = 'ok') => {
     const id = ++toastSeq;
